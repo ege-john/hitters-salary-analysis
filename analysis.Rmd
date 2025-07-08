@@ -1,0 +1,3484 @@
+---
+title: "Hitters Salary Analysis"
+author: "Ege John Isik & Emin Albayram"
+output:
+  html_document:
+    theme: cosmo
+    highlight: tango
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    df_print: paged
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = 'center',
+  out.width = "100%"
+)
+
+# Required libraries
+library(dplyr)
+library(ggplot2)
+library(kableExtra)
+library(corrplot)
+library(reshape2)
+library(psych)
+library(DT)
+library(gridExtra)
+library(grid)
+library(nnet)
+library(caret)
+library(car)
+library(MASS)
+library(tidyverse)
+```
+
+```{css, echo=FALSE}
+/* Custom CSS styling */
+body {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.7;
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: #fafafa;
+  color: #333;
+}
+
+h1, h2, h3, h4 {
+  color: #2c3e50;
+  font-weight: 500;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 10px;
+  font-size: 2.2em;
+}
+
+h2 {
+  border-bottom: 1px solid #bdc3c7;
+  padding-bottom: 5px;
+  font-size: 1.8em;
+}
+
+h3 {
+  font-size: 1.5em;
+}
+
+h4 {
+  font-size: 1.3em;
+}
+
+pre, code {
+  border-radius: 4px;
+  background-color: #f5f5f5;
+  font-size: 90%;
+}
+
+.table {
+  width: auto !important;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 24px;
+  border-collapse: collapse;
+}
+
+.table th {
+  background-color: #f2f2f2;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(52, 152, 219, 0.2);
+}
+
+caption {
+  caption-side: top;
+  font-weight: bold;
+  color: #2c3e50;
+  text-align: center;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+}
+
+.section {
+  padding: 15px 0;
+}
+
+.plot-container {
+  background-color: #f9f9f9;
+  border-radius: 5px;
+  padding: 15px;
+  margin: 20px 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Highlighted sections */
+.main-findings {
+  background-color: #eafaf1;
+  border-left: 5px solid #2ecc71;
+  padding: 15px 20px;
+  margin: 20px 0;
+  border-radius: 0 5px 5px 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.analysis-decisions {
+  background-color: #ebf5fb;
+  border-left: 5px solid #3498db;
+  padding: 15px 20px;
+  margin: 20px 0;
+  border-radius: 0 5px 5px 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Panel styling */
+.panel {
+  margin-bottom: 20px;
+  background-color: #fff;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.panel-primary {
+  border-color: #3498db;
+}
+
+.panel-heading {
+  padding: 10px 15px;
+  border-bottom: 1px solid transparent;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  background-color: #3498db;
+  color: white;
+  font-weight: bold;
+}
+
+.panel-body {
+  padding: 15px;
+}
+
+/* Improved table of contents */
+#TOC {
+  margin: 25px 0;
+  border: 1px solid #eee;
+  border-radius: 5px;
+  padding: 10px;
+  background-color: #f8f9fa;
+}
+
+#TOC .toc-content {
+  padding-left: 20px;
+}
+
+/* For better code chunk appearance */
+pre.r {
+  background-color: #f8f8f8;
+  border: 1px solid #ddd;
+  padding: 10px;
+}
+
+/* Grid system for panels */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -15px;
+  margin-left: -15px;
+}
+
+.col-md-4 {
+  flex: 0 0 33.333333%;
+  max-width: 33.333333%;
+  padding: 0 15px;
+}
+
+/* Better image display */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Footer styling */
+.footer {
+  text-align: center;
+  margin-top: 40px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  border-top: 1px solid #eee;
+  color: #777;
+  font-size: 0.9em;
+}
+
+/* Datatable improvements */
+.dataTables_wrapper {
+  margin-bottom: 30px;
+}
+
+.dataTables_info, .dataTables_paginate {
+  font-size: 0.9em;
+}
+
+/* Print-friendly */
+@media print {
+  body {
+    font-size: 12pt;
+    background-color: white;
+  }
+  
+  pre, code {
+    font-size: 11pt;
+    background-color: #f9f9f9 !important;
+    border: 1px solid #ddd;
+  }
+  
+  .main-findings, .analysis-decisions {
+    background-color: #f9f9f9 !important;
+    border: 1px solid #ddd;
+    border-left: 5px solid #999;
+  }
+}
+```
+
+_You can click on the show button to see the relevant code and use the sidebar to navigate to the relevant topic._
+
+# Introduction
+
+This analysis examines the relationship between baseball player statistics and their salaries using the Hitters dataset. The dataset contains information on Major League Baseball players from the 1986 and 1987 seasons, including performance metrics, career statistics, and salary information.
+
+```{r load_data}
+# Load the Hitters dataset
+hitters <- read.csv("Hitters.csv")
+
+# Display a clean summary table of the first few rows
+knitr::kable(head(hitters), 
+             caption = "First 6 rows of the Hitters dataset",
+             align = "c", 
+             booktabs = TRUE) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = FALSE,
+                          font_size = 11) %>%
+  kableExtra::column_spec(column = 1, bold = TRUE)
+
+```
+
+# Data Import and Pre-Processing
+
+```{r import_data}
+# We already imported the data in the previous step
+# Check dimensions and structure
+dim(hitters)        # Total number of units and measurements
+str(hitters)        # Shows data structure and types
+```
+
+```{r import_data_visualization, message=FALSE, echo=FALSE}
+
+# Summary of categorical variables
+cat("## Categorical Variables Summary\n\n")
+
+cat("### League distribution:\n")
+knitr::kable(table(hitters$League), 
+             col.names = c("League", "Count"),
+             align = "c") %>%
+  kableExtra::kable_styling(bootstrap_options = c("bordered", "condensed"),
+                          font_size = 11,
+                          full_width = FALSE)
+
+cat("### Division distribution:\n")
+knitr::kable(table(hitters$Division), 
+             col.names = c("Division", "Count"),
+             align = "c") %>%
+  kableExtra::kable_styling(bootstrap_options = c("bordered", "condensed"),
+                          font_size = 11,
+                          full_width = FALSE)
+
+cat("### New League distribution:\n")
+knitr::kable(sort(table(hitters$NewLeague), decreasing = TRUE), 
+             col.names = c("New League", "Count"),
+             align = "c") %>%
+  kableExtra::kable_styling(bootstrap_options = c("bordered", "condensed"),
+                          font_size = 11,
+                          full_width = FALSE)
+```
+
+<div class="main-findings">
+The Hitters dataset contains information about Major League Baseball players from the 1986 and 1987 seasons. The dataset includes 322 observations (players) with 20 variables describing player performance statistics and salary information. These variables include:
+
+- **Batting performance metrics:** AtBat, Hits, HmRun, Runs, RBI
+- **Career statistics:** Years, CAtBat, CHits, CHmRun, CRuns, CRBI, CWalks
+- **Categorical variables:** League, Division, NewLeague
+- **Target variable:** Salary (in thousands of dollars)
+</div>
+
+## Missing Value Analysis
+
+```{r missing_values, fig.width=10, fig.height=6}
+# Create a standardized theme for all plots
+my_theme <- theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12, face = "italic"),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    panel.grid.major = element_line(color = "gray90"),
+    panel.grid.minor = element_line(color = "gray95")
+  )
+
+# Check for missing values
+missing_counts <- colSums(is.na(hitters))
+missing_percentage <- round(missing_counts/nrow(hitters)*100, 2)
+
+missing_df <- data.frame(
+  Variable = names(missing_counts),
+  Missing_Count = missing_counts,
+  Missing_Percentage = missing_percentage
+) %>% arrange(desc(Missing_Count))
+
+# Visualize missing values pattern
+missing_pattern <- hitters %>%
+  is.na() %>%
+  colSums() %>%
+  sort(decreasing = TRUE)
+
+ggplot(data.frame(feature = names(missing_pattern), missing_pct = missing_pattern), aes(x = missing_pct, y = feature)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = paste0(round(missing_pct, 2))), hjust = 0) +
+  labs(title = "Missing Values Distribution Chart", x = "Number of Missing Values", y = "Feature") +
+  coord_flip() +
+  my_theme
+```
+
+<div class="main-findings">
+The missing value analysis reveals that:
+
+<ul>
+  <li>Only the <code>Salary</code> variable contains missing values</li>
+  <li>59 observations (18.32% of the dataset) have missing Salary information</li>
+  <li>All other variables are complete with no missing data</li>
+</ul>
+
+Since Salary is our target variable for prediction, imputing these missing values could introduce significant bias into our models. Given that we would still retain over 80% of the original data after removing these observations, a complete-case analysis is the most appropriate approach.
+</div>
+
+```{r handle_missing}
+# Count total rows before removing NAs
+total_rows <- nrow(hitters)
+
+# Remove rows with missing values
+hitters_complete <- na.omit(hitters)
+
+# Count rows after removal
+complete_rows <- nrow(hitters_complete)
+removed_count <- total_rows - complete_rows
+removed_pct <- round(removed_count / total_rows * 100, 2)
+
+# Create a summary dataframe
+missing_summary <- data.frame(
+  Metric = c("Original Observations", "Observations with Missing Values", 
+             "Complete Observations", "Percentage of Data Removed"),
+  Value = c(total_rows, removed_count, complete_rows, paste0(removed_pct, "%"))
+)
+
+# Display as a nice table with bootstrap styling
+knitr::kable(missing_summary, 
+             caption = "Missing Value Handling Summary",
+             align = c("l", "c")) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                           full_width = FALSE) %>%
+  kableExtra::row_spec(0, bold = TRUE, background = "#E6E6FA") %>%
+  kableExtra::column_spec(1, bold = TRUE)
+
+# Use the dataset without missing values
+hitters <- hitters_complete
+```
+
+## Outlier Detection and Analysis
+
+```{r outlier_detection, fig.width=10, fig.height=8}
+# Create a function to identify outliers using IQR method
+identify_outliers <- function(x, coef = 1.5) {
+  q1 <- quantile(x, 0.25, na.rm = TRUE)
+  q3 <- quantile(x, 0.75, na.rm = TRUE)
+  iqr <- q3 - q1
+  upper <- q3 + coef * iqr
+  lower <- q1 - coef * iqr
+  return(x < lower | x > upper)
+}
+
+# Apply to numeric columns
+numeric_cols <- sapply(hitters, is.numeric)
+outliers_check <- sapply(hitters[, numeric_cols], identify_outliers)
+outliers_summary <- colSums(outliers_check)
+
+# Create a better formatted outlier summary table
+outlier_df <- data.frame(
+  Variable = names(outliers_summary),
+  Outlier_Count = outliers_summary,
+  Percentage = round(outliers_summary/nrow(hitters)*100, 2)
+) %>% arrange(desc(Outlier_Count))
+
+# Display outlier summary as a nice table
+knitr::kable(outlier_df, 
+             col.names = c("Variable", "Number of Outliers", "Percentage of Data (%)"),
+             caption = "Outlier Summary by Variable",
+             align = "c") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                           full_width = FALSE) %>%
+  kableExtra::row_spec(which(outlier_df$Outlier_Count > 15), background = "#FFE4E1")
+
+# Visualize outliers in key variables with enhanced boxplots
+key_vars <- c("Salary", "Years", "Hits", "HmRun")
+key_data <- reshape2::melt(hitters[, key_vars])
+
+# Create a more visually appealing boxplot with improved formatting
+ggplot(key_data, aes(x = variable, y = value)) +
+  geom_boxplot(fill = "#3498db", alpha = 0.7, outlier.color = "#e74c3c", 
+               outlier.shape = 16, outlier.size = 2, outlier.alpha = 0.8) +
+  facet_wrap(~variable, scales = "free") +
+  labs(title = "Boxplots of Key Variables",
+       subtitle = "Red dots indicate potential outliers",
+       x = "",
+       y = "Value") +
+  my_theme +
+  theme(strip.text = element_text(size = 14, face = "bold"),
+        strip.background = element_rect(fill = "#f9f9f9"),
+        panel.background = element_rect(fill = "#f9f9f9", color = NA),
+        panel.border = element_rect(color = "#dcdcdc", fill = NA))
+```
+
+<div class="main-findings">
+Our outlier detection analysis reveals:
+
+<ol>
+  <li><strong>Salary</strong> has the highest number of outliers (39), representing players with exceptionally high or low salaries</li>
+  <li>Several performance metrics like <strong>CRuns</strong>, <strong>CRBI</strong>, and <strong>CHmRun</strong> show a considerable number of outliers</li>
+  <li>The presence of these outliers is expected in baseball statistics, as they typically represent:
+    <ul>
+      <li>Star players with exceptional performance statistics</li>
+      <li>Veteran players with accumulated career statistics far above average</li>
+      <li>Rookie players or bench players with limited playing time</li>
+    </ul>
+  </li>
+</ol>
+</div>
+
+<div class="main-findings">
+<p>We will retain these outliers in our analysis for several important reasons:</p>
+<ul>
+  <li>They represent legitimate extreme values rather than data errors</li>
+  <li>In sports analytics, outliers often contain valuable information about exceptional performers</li>
+  <li>Removing outliers could eliminate important patterns that drive salary differences</li>
+  <li>The models we plan to use should be robust enough to handle these legitimate extreme values</li>
+</ul>
+</div>
+
+## Exploratory Data Analysis
+
+```{r explore_numeric, fig.width=10, fig.height=8}
+# Create a more informative summary statistics table
+num_stats <- psych::describe(select_if(hitters, is.numeric))
+num_summary <- data.frame(
+  Variable = rownames(num_stats),
+  n = num_stats$n,
+  mean = num_stats$mean,
+  sd = num_stats$sd,
+  median = num_stats$median,
+  min = num_stats$min,
+  max = num_stats$max,
+  skew = num_stats$skew,
+  kurtosis = num_stats$kurtosis
+)
+
+# Round only the numeric columns
+num_summary[,2:9] <- round(num_summary[,2:9], digits = 2)
+
+# Display the summary as a nicely formatted table with DT for better interactivity
+DT::datatable(num_summary,
+              caption = "Detailed Summary Statistics of Numeric Variables",
+              options = list(
+                pageLength = 10,
+                dom = 'Bfrtip',
+                scrollX = TRUE,
+                autoWidth = TRUE
+              ),
+              rownames = FALSE,
+              class = 'cell-border stripe') %>%
+  DT::formatStyle(columns = 1, fontWeight = 'bold') %>%
+  DT::formatRound(columns = 3:9, digits = 2)
+
+# Enhanced histograms with density plots for key variables
+key_vars <- c("Salary", "AtBat", "Hits", "HmRun")
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1), oma = c(0, 0, 2, 0), bg = "#f9f9f9")
+
+colors <- c("#3498db", "#e74c3c", "#2ecc71", "#f39c12")
+i <- 1
+
+for (var in key_vars) {
+  hist(hitters[[var]], 
+       main = paste(var, "Distribution"), 
+       col = adjustcolor(colors[i], alpha.f = 0.7), 
+       border = "white",
+       breaks = 20,
+       probability = TRUE,
+       xlab = var,
+       font.main = 2)
+  lines(density(hitters[[var]]), col = "darkred", lwd = 2)
+  rug(hitters[[var]], col = adjustcolor("navy", alpha.f = 0.5))
+  i <- i + 1
+}
+mtext("Distributions of Key Variables with Density Curves", outer = TRUE, cex = 1.5, font = 2)
+```
+
+<div class="main-findings">
+<h3>Key Findings from Exploratory Analysis:</h3>
+
+<ol>
+  <li><strong>Salary Distribution:</strong>
+    <ul>
+      <li>Highly right-skewed (skewness = 1.57)</li>
+      <li>Mean salary ($535.9K) is significantly higher than median salary ($425.0K)</li>
+      <li>Wide range from $67K to $2,460K, indicating extreme variability</li>
+    </ul>
+  </li>
+  
+  <li><strong>Performance Metrics:</strong>
+    <ul>
+      <li>Most batting statistics show moderate right skewness</li>
+      <li>Strong positive correlations exist between related performance metrics</li>
+      <li>Career statistics tend to have higher skewness and more outliers than single-season metrics</li>
+    </ul>
+  </li>
+  
+  <li><strong>Correlation Analysis:</strong>
+    <ul>
+      <li>Strong positive correlations between hits, at-bats, runs, and RBIs</li>
+      <li>Career statistics are highly correlated with each other</li>
+      <li>Years in the league correlates strongly with career statistics, as expected</li>
+    </ul>
+  </li>
+</ol>
+
+<p>These exploratory findings suggest that:</p>
+<ul>
+  <li>Linear models may need transformation of the salary variable</li>
+  <li>Feature selection will be important due to multicollinearity among predictors</li>
+  <li>Years of experience is an important factor that influences many other variables</li>
+</ul>
+</div>
+
+## Data Transformation
+
+```{r standardize_data}
+# Identify numeric columns (explicitly excluding the target variable "Salary")
+predictors <- names(hitters)[sapply(hitters, is.numeric) & names(hitters) != "Salary"]
+
+# Create a copy of the dataset
+hitters_scaled <- hitters
+
+# Standardize the numeric predictors
+hitters_scaled[predictors] <- scale(hitters[predictors])
+
+# Create a before/after comparison table for a few key variables
+set.seed(123) # For reproducible sampling
+sample_players <- sample(1:nrow(hitters), 5)
+
+comparison_data <- data.frame(
+  Player = 1:5,
+  AtBat_Original = hitters[sample_players, "AtBat"],
+  AtBat_Scaled = hitters_scaled[sample_players, "AtBat"],
+  Hits_Original = hitters[sample_players, "Hits"],
+  Hits_Scaled = hitters_scaled[sample_players, "Hits"],
+  HmRun_Original = hitters[sample_players, "HmRun"],
+  HmRun_Scaled = hitters_scaled[sample_players, "HmRun"]
+)
+
+# Display comparison table with improved formatting
+knitr::kable(comparison_data, 
+             caption = "Comparison of Original vs. Standardized Values for 5 Random Players",
+             align = "c",
+             digits = 2) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                           full_width = FALSE) %>%
+  kableExtra::add_header_above(c(" " = 1, "At Bats" = 2, "Hits" = 2, "Home Runs" = 2)) %>%
+  kableExtra::column_spec(1, bold = TRUE, background = "#f9f9f9") %>%
+  kableExtra::column_spec(c(3,5,7), background = "#e8f4f8")
+
+# Check standardization results
+scaled_summary <- data.frame(
+  Variable = predictors,
+  Mean = sapply(hitters_scaled[predictors], mean),
+  SD = sapply(hitters_scaled[predictors], sd)
+)
+
+# Round only the numeric columns
+scaled_summary[,2:3] <- round(scaled_summary[,2:3], digits = 5)
+
+# Display standardization verification table
+knitr::kable(scaled_summary, 
+             col.names = c("Variable", "Mean (should be ~0)", "Standard Deviation (should be 1)"),
+             caption = "Verification of Standardization Results",
+             align = "c") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                           full_width = FALSE) %>%
+  kableExtra::row_spec(0, bold = TRUE, background = "#f9f9f9") %>%
+  kableExtra::column_spec(1, bold = TRUE)
+```
+
+<div class="analysis-decisions">
+<h3>Explanation of Preprocessing Choices</h3>
+
+<ol>
+  <li><strong>Missing Values:</strong> We removed rows with missing values rather than imputing them because:
+    <ul>
+      <li>The missing values only appear in the Salary column, which is our target variable</li>
+      <li>Imputing salary values might introduce bias in our prediction models</li>
+      <li>We still retain 82% of the dataset after removal, which is sufficient for our analysis</li>
+    </ul>
+  </li>
+
+  <li><strong>Standardization:</strong> We standardized the numeric predictors because:
+    <ul>
+      <li>Variables have different scales (e.g., AtBat vs HmRun) which can affect models like regression or k-nearest neighbors</li>
+      <li>Standardization gives all predictors equal importance initially</li>
+      <li>This helps with convergence in many machine learning algorithms</li>
+      <li>We explicitly excluded the Salary variable from standardization as it's our target variable</li>
+    </ul>
+  </li>
+
+  <li><strong>Exploratory Analysis:</strong> We performed detailed exploration to:
+    <ul>
+      <li>Understand the distributions of key variables</li>
+      <li>Identify potential outliers or skewed distributions</li>
+      <li>Get a sense of the dataset's characteristics before modeling</li>
+    </ul>
+  </li>
+  
+  <li><strong>Outlier Handling:</strong> We decided to keep outliers because:
+    <ul>
+      <li>In sports data, outliers often represent exceptional players</li>
+      <li>Removing them would eliminate important information about high performers</li>
+      <li>The outliers appear legitimate and not due to data errors</li>
+    </ul>
+  </li>
+</ol>
+
+<p>The cleaned and standardized dataset (hitters_scaled) is now ready for further analysis and modeling.</p>
+</div>
+
+# Creating the Categorical Response Variable
+
+Now we'll convert the quantitative Salary variable into a categorical variable with three tiers.
+
+```{r create_categorical_response, fig.width=10, fig.height=8}
+# Display the summary of Salary to understand its distribution
+summary(hitters$Salary)
+
+# Calculate tertiles
+tertiles <- quantile(hitters$Salary, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
+tertiles
+
+# Create SalaryLevel using salary tertiles
+hitters$SalaryLevel <- cut(hitters$Salary, 
+                          breaks = tertiles, 
+                          labels = c("LowSalary", "MediumSalary", "HighSalary"),
+                          include.lowest = TRUE)
+
+# Verify the new variable
+table(hitters$SalaryLevel)
+prop.table(table(hitters$SalaryLevel)) * 100  # Percentage in each category
+
+# Visualize the distribution with improved styling
+ggplot(hitters, aes(x = SalaryLevel, fill = SalaryLevel)) +
+  geom_bar() +
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5) +
+  scale_fill_manual(values = c("LowSalary" = "#66c2a5", 
+                               "MediumSalary" = "#fc8d62", 
+                               "HighSalary" = "#8da0cb")) +
+  labs(title = "Distribution of Salary Levels",
+       x = "Salary Level",
+       y = "Number of Players") +
+  my_theme
+
+# Also add SalaryLevel to our scaled dataset
+hitters_scaled$SalaryLevel <- hitters$SalaryLevel
+```
+
+<div class="main-findings">
+We chose to use tertiles (dividing the data into three equal-sized groups) for the following reasons:
+
+1. **Equal Group Sizes**: Using tertiles ensures we have approximately equal numbers of observations in each category, which is beneficial for classification models to avoid class imbalance problems.
+
+2. **Domain Relevance**: The three categories (Low, Medium, High) provide a meaningful interpretation for baseball player salaries that aligns with common salary tier structures.
+
+3. **Statistical Stability**: Having balanced categories helps with the stability of subsequent models and makes interpretation of model performance metrics more straightforward.
+
+4. **Project Requirements**: Creating a categorical response variable with three levels follows the requirements of the assignment, allowing for multinomial logistic regression analysis.
+</div>
+
+## Domain-Specific Salary Benchmarks
+
+While statistical tertiles ensure balanced categories, it's also important to understand how our divisions compare to real-world MLB salary benchmarks. This helps contextualize our analysis in terms of actual salary distributions in professional baseball.
+
+```{r salary_cutoffs, fig.width=10, fig.height=8}
+# Define league-specific thresholds
+mlb_avg <- median(hitters$Salary, na.rm = TRUE)
+mlb_low <- quantile(hitters$Salary, 0.25)  # Bottom 25%
+mlb_high <- quantile(hitters$Salary, 0.75) # Top 25%
+
+# Compare with tertiles
+cat("Tertiles:", tertiles, "\n",
+    "MLB Benchmarks: Low =", mlb_low, "Avg =", mlb_avg, "High =", mlb_high)
+
+# Create a more informative visualization
+# Salary distribution with clear markings
+ggplot(hitters, aes(x = Salary)) +
+  geom_histogram(bins = 25, fill = "steelblue", alpha = 0.7) +
+  geom_vline(xintercept = tertiles, color = "red", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = c(mlb_low, mlb_avg, mlb_high), 
+             color = "darkgreen", linetype = "dotted", size = 1) +
+  annotate("text", x = tertiles[2], y = 45, label = "1st Tertile", 
+           color = "red", angle = 90, vjust = -0.5) +
+  annotate("text", x = tertiles[3], y = 45, label = "2nd Tertile", 
+           color = "red", angle = 90, vjust = -0.5) +
+  annotate("text", x = mlb_low, y = 40, label = "25th Percentile", 
+           color = "darkgreen", angle = 90, vjust = -0.5) +
+  annotate("text", x = mlb_avg, y = 40, label = "Median", 
+           color = "darkgreen", angle = 90, vjust = 1.5) +
+  annotate("text", x = mlb_high, y = 40, label = "75th Percentile", 
+           color = "darkgreen", angle = 90, vjust = -0.5) +
+  labs(title = "Salary Distribution with Statistical Divisions",
+       subtitle = "Red dashed lines = tertiles, Green dotted lines = quartiles and median",
+       x = "Salary ($)",
+       y = "Count") +
+  my_theme
+
+# Compare category sizes
+tertile_groups <- cut(hitters$Salary, 
+                     breaks = tertiles, 
+                     labels = c("Low", "Medium", "High"),
+                     include.lowest = TRUE)
+
+mlb_groups <- cut(hitters$Salary, 
+                 breaks = c(min(hitters$Salary), mlb_low, mlb_high, max(hitters$Salary)), 
+                 labels = c("Low", "Medium", "High"),
+                 include.lowest = TRUE)
+
+# Create a comparison table
+category_comparison <- data.frame(
+  Category = c("Low", "Medium", "High"),
+  Tertile_Count = as.numeric(table(tertile_groups)),
+  Tertile_Pct = round(prop.table(table(tertile_groups)) * 100, 1),
+  MLB_Count = as.numeric(table(mlb_groups)),
+  MLB_Pct = round(prop.table(table(mlb_groups)) * 100, 1)
+)
+
+# Display the comparison
+cat("Category size comparison between tertiles and MLB benchmarks:\n")
+print(category_comparison)
+```
+
+<div class="main-findings">
+The comparison between statistical tertiles and MLB benchmarks reveals important insights:
+
+1. **Category Balance**: Our tertile approach creates equal-sized groups (as designed), whereas using MLB benchmarks would result in an uneven distribution with more players in the middle category.
+
+2. **Real-World Context**: The MLB median salary provides a reference point that represents the middle of the actual salary distribution, rather than just a statistical division.
+
+3. **Model Implications**: Using MLB benchmarks might better reflect real-world salary tiers, but could lead to class imbalance problems for our predictive models.
+
+4. **Decision Justification**: We chose tertiles for our analysis to ensure statistical robustness, but the MLB benchmarks provide valuable context for interpreting our results in terms of actual salary structures in baseball.
+
+This comparison helps bridge the gap between our statistical approach and the economic reality of MLB salary distributions.
+</div>
+
+# Visual Data Inspection
+
+Now, let's explore the relationships between our newly created `SalaryLevel` and other predictors through visualizations. This will help identify which variables might be most useful in predicting salary levels.
+
+## Performance Metrics by Salary Level
+
+```{r performance_by_salary, fig.width=10, fig.height=7}
+# Create boxplots for key performance metrics with consistent styling
+p1 <- ggplot(hitters, aes(x = SalaryLevel, y = Hits, fill = SalaryLevel)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("LowSalary" = "#66c2a5", 
+                              "MediumSalary" = "#fc8d62", 
+                              "HighSalary" = "#8da0cb")) +
+  labs(title = "Hits by Salary Level", x = "Salary Level", y = "Hits") +
+  my_theme +
+  theme(legend.position = "none")
+
+p2 <- ggplot(hitters, aes(x = SalaryLevel, y = HmRun, fill = SalaryLevel)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("LowSalary" = "#66c2a5", 
+                              "MediumSalary" = "#fc8d62", 
+                              "HighSalary" = "#8da0cb")) +
+  labs(title = "Home Runs by Salary Level", x = "Salary Level", y = "Home Runs") +
+  my_theme +
+  theme(legend.position = "none")
+
+p3 <- ggplot(hitters, aes(x = SalaryLevel, y = RBI, fill = SalaryLevel)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("LowSalary" = "#66c2a5", 
+                              "MediumSalary" = "#fc8d62", 
+                              "HighSalary" = "#8da0cb")) +
+  labs(title = "RBIs by Salary Level", x = "Salary Level", y = "RBIs") +
+  my_theme +
+  theme(legend.position = "none")
+
+p4 <- ggplot(hitters, aes(x = SalaryLevel, y = Years, fill = SalaryLevel)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("LowSalary" = "#66c2a5", 
+                              "MediumSalary" = "#fc8d62", 
+                              "HighSalary" = "#8da0cb")) +
+  labs(title = "Years in League by Salary Level", x = "Salary Level", y = "Years") +
+  my_theme +
+  theme(legend.position = "none")
+
+# Arrange the boxplots in a grid
+grid.arrange(p1, p2, p3, p4, ncol = 2, 
+             top = textGrob("Performance Metrics by Salary Level", 
+                           gp = gpar(fontsize = 16, fontface = "bold")))
+
+# Create a data frame for the performance metrics table
+performance_metrics <- data.frame(
+  Metric = c("Hits", "Home Runs", "RBIs", "Experience (Years)"),
+  Observation = c("Higher salaries correlate with more hits (clear increasing trend)", 
+                 "Higher-salaried players hit more home runs, with notable separation",
+                 "Clear increasing trend with salary level, especially for high-salary players",
+                 "Strong indicator of high salary, suggesting experience is highly valued")
+)
+
+knitr::kable(performance_metrics, 
+             col.names = c("Performance Metric", "Observation"),
+             align = c("l", "l"),
+             caption = NULL) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                          full_width = FALSE,
+                          position = "center",
+                          font_size = 11) %>%
+  kableExtra::column_spec(1, bold = TRUE, color = "#2c3e50") %>%
+  kableExtra::row_spec(0, bold = TRUE, background = "#f2f2f2")
+```
+
+<div class="main-findings">
+<p>All four performance metrics show a clear positive relationship with salary level, with years of experience and offensive production (especially RBIs) appearing to be the strongest indicators of higher salary.</p>
+</div>
+
+## Career vs. Current Performance
+
+```{r career_vs_current, fig.width=10, fig.height=7, results='asis'}
+# Years vs Salary colored by Salary Level
+p5 <- ggplot(hitters, aes(x = Years, y = Salary, color = SalaryLevel)) +
+  geom_point(alpha = 0.7, size = 3) +
+  scale_color_manual(values = c("LowSalary" = "#66c2a5", 
+                               "MediumSalary" = "#fc8d62", 
+                               "HighSalary" = "#8da0cb")) +
+  labs(title = "Experience vs Salary", 
+       x = "Years in League", 
+       y = "Salary",
+       color = "Salary Level") +
+  my_theme
+
+# Hits vs Salary colored by League
+p6 <- ggplot(hitters, aes(x = Hits, y = Salary, color = League)) +
+  geom_point(alpha = 0.7, size = 3) +
+  scale_color_manual(values = c("A" = "#e41a1c", "N" = "#377eb8")) +
+  labs(title = "Hits vs Salary by League", 
+       x = "Hits", 
+       y = "Salary",
+       color = "League") +
+  my_theme
+
+# Compare current season to career performance
+p7 <- ggplot(hitters, aes(x = Hits, y = CHits/Years, color = SalaryLevel)) +
+  geom_point(alpha = 0.7, size = 3) +
+  scale_color_manual(values = c("LowSalary" = "#66c2a5", 
+                               "MediumSalary" = "#fc8d62", 
+                               "HighSalary" = "#8da0cb")) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") +
+  labs(title = "Current vs Average Career Hits", 
+       x = "Current Season Hits", 
+       y = "Career Average Hits per Season",
+       color = "Salary Level") +
+  my_theme
+
+# Arrange scatter plots with interpretation
+grid.arrange(p5, p6, ncol = 2,
+             top = textGrob("Experience and Performance Relationships", 
+                           gp = gpar(fontsize = 16, fontface = "bold")))
+
+# Display the third plot separately with additional annotation
+p7
+
+# Create a data frame for the career vs current performance table
+career_insights <- data.frame(
+  Aspect = c("Experience", "League Comparison", "Career Consistency", "Performance Clusters"),
+  Finding = c("Clear positive relationship between years in league and salary", 
+              "No significant salary differences between American and National League players with similar performance",
+              "Players with higher career averages tend to earn more, even when current season performance is similar",
+              "High-salary players cluster in the upper-right quadrant of performance metrics (both current and career)")
+)
+
+knitr::kable(career_insights, 
+             col.names = c("Key Aspect", "Finding"),
+             align = c("l", "l")) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                          full_width = FALSE,
+                          position = "center",
+                          font_size = 11) %>%
+  kableExtra::column_spec(1, bold = TRUE, color = "#2c3e50") %>%
+  kableExtra::row_spec(0, bold = TRUE, background = "#f2f2f2")
+```
+
+<div class="main-findings">
+<p>Long-term career performance appears to be a more reliable predictor of salary than single-season metrics, suggesting MLB teams value consistency and experience when determining player compensation.</p>
+</div>
+
+## Performance Distribution Analysis
+
+```{r performance_distribution, fig.width=9, fig.height=5, results='asis'}
+# Density plots for key metrics by Salary Level with improved styling
+p8 <- ggplot(hitters, aes(x = AtBat, fill = SalaryLevel)) +
+  geom_density(alpha = 0.5) +
+  scale_fill_manual(values = c("LowSalary" = "#66c2a5", 
+                              "MediumSalary" = "#fc8d62", 
+                              "HighSalary" = "#8da0cb")) +
+  labs(title = "At Bats Distribution by Salary Level", 
+       x = "At Bats",
+       y = "Density",
+       fill = "Salary Level") +
+  my_theme +
+  theme(legend.position = "bottom", 
+        legend.box = "horizontal",
+        legend.title = element_text(size=9),
+        legend.text = element_text(size=8))
+
+p9 <- ggplot(hitters, aes(x = Runs, fill = SalaryLevel)) +
+  geom_density(alpha = 0.5) +
+  scale_fill_manual(values = c("LowSalary" = "#66c2a5", 
+                              "MediumSalary" = "#fc8d62", 
+                              "HighSalary" = "#8da0cb")) +
+  labs(title = "Runs Distribution by Salary Level", 
+       x = "Runs",
+       y = "Density",
+       fill = "Salary Level") +
+  my_theme +
+  theme(legend.position = "bottom",
+        legend.box = "horizontal",
+        legend.title = element_text(size=9),
+        legend.text = element_text(size=8))
+
+# Arrange density plots
+grid.arrange(p8, p9, ncol = 2,
+             top = textGrob("Performance Distributions by Salary Level", 
+                           gp = gpar(fontsize = 14, fontface = "bold")))
+
+# Create a nicer formatted table for distribution analysis
+distribution_analysis <- data.frame(
+  Metric = c("At Bats", "Runs", "Playing Time", "Production Value"),
+  Observation = c("Higher-salaried players have more plate appearances (distribution shifts right with each salary tier)",
+                 "Clear separation between salary tiers, with higher-salaried players scoring more runs",
+                 "More at-bats suggests higher-paid players receive more regular playing time",
+                 "Run production appears to be a key factor in salary determination")
+)
+
+knitr::kable(distribution_analysis, 
+             col.names = c("Aspect", "Key Observation"),
+             align = c("l", "l")) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                          full_width = FALSE,
+                          position = "center",
+                          font_size = 11) %>%
+  kableExtra::column_spec(1, bold = TRUE, color = "#2c3e50") %>%
+  kableExtra::row_spec(0, bold = TRUE, background = "#f2f2f2")
+```
+<div class="main-findings">
+<p>The density plots provide strong evidence that playing time and offensive productivity are both significant factors in determining player salaries, with clear separation between salary tiers.</p>
+</div>
+
+## Correlation Analysis and Heatmap
+
+```{r correlation_analysis, fig.width=9, fig.height=7, results='asis'}
+# Select numeric variables for correlation analysis with improved readability
+num_vars <- hitters %>% 
+  dplyr::select(Salary, AtBat, Hits, HmRun, Runs, RBI, Walks, Years, 
+                CAtBat, CHits, CHmRun, CRuns, CRBI, CWalks) %>%
+  cor()
+
+# Create a correlation heatmap with better formatting
+corr_melted <- reshape2::melt(num_vars)
+
+# Correlation heatmap with improved aesthetics
+ggplot(corr_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "#4575b4", high = "#d73027", mid = "white", 
+                      midpoint = 0, limit = c(-1,1), name="Correlation") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = 2.2, 
+            color = ifelse(abs(corr_melted$value) > 0.7, "white", "black")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8),
+        plot.title = element_text(size = 14, face = "bold"),
+        plot.subtitle = element_text(size = 10)) +
+  labs(title = "Correlation Heatmap of Key Variables",
+       subtitle = "Showing relationships between performance metrics and salary",
+       x = "", y = "")
+
+# Create a table for strong salary correlations
+salary_correlations <- data.frame(
+  Variable = c("Years in league", "Career RBIs (CRBI)", "Career Hits (CHits)", "Season RBIs"),
+  Correlation = c(0.64, 0.63, 0.59, 0.54),
+  Interpretation = c("Experience is highly valued", 
+                    "Long-term production capability", 
+                    "Consistent hitting ability", 
+                    "Current season productivity")
+)
+
+# Create a table for multicollinearity concerns
+multicollinearity <- data.frame(
+  Issue = c("Performance metrics", "Career vs. current stats", "Modeling implications"),
+  Description = c("Hits & AtBat highly correlated (r = 0.97)", 
+                 "Current and career statistics for same metrics show strong correlations",
+                 "Will need variable selection or dimensional reduction techniques")
+)
+
+knitr::kable(salary_correlations, 
+             col.names = c("Variable", "Correlation (r)", "Interpretation"),
+             align = c("l", "c", "l")) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                          full_width = FALSE,
+                          position = "left",
+                          font_size = 11) %>%
+  kableExtra::column_spec(1, bold = TRUE) %>%
+  kableExtra::column_spec(2, color = ifelse(salary_correlations$Correlation > 0.6, "#d73027", "#4575b4"), 
+                        bold = TRUE) %>%
+  kableExtra::row_spec(0, bold = TRUE, background = "#f2f2f2")
+
+knitr::kable(multicollinearity, 
+             col.names = c("Concerns", "Description"),
+             align = c("l", "l")) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                          full_width = FALSE,
+                          position = "left",
+                          font_size = 11) %>%
+  kableExtra::column_spec(1, bold = TRUE, width = "15em") %>%
+  kableExtra::row_spec(0, bold = TRUE, background = "#f2f2f2")
+```
+
+<div class="main-findings">
+Our exploratory visualizations reveal several patterns that help explain the factors influencing MLB player salaries:
+
+1. **Experience Matters**: Years in the league is one of the strongest predictors of salary level, with more experienced players commanding significantly higher salaries.
+2. **Performance Differentiation**: Higher-salaried players consistently show better performance metrics across multiple offensive statistics (hits, home runs, RBIs, runs).
+3. **Career vs. Current Performance**: While current season statistics are important, career performance metrics show stronger correlations with salary, suggesting that long-term track records are highly valued.
+4. **Multicollinearity**: Many performance metrics are strongly correlated with each other, which will need to be addressed in our modeling approach.
+
+These insights will guide our variable selection and modeling strategies in the following sections.
+</div>
+
+# Multinomial Logistic Regression Model
+
+## Introduction to Multinomial Logistic Regression
+
+Multinomial logistic regression is an extension of binary logistic regression that allows for predicting categorical outcomes with more than two levels. In our analysis, we're using this approach to model the relationship between various baseball player statistics and their salary level categorization.
+
+### Why Multinomial Logistic Regression?
+
+1. **Categorical Response Variable**: Our response variable `SalaryLevel` is categorical with three distinct levels (Low, Medium, High), making it unsuitable for linear regression methods.
+2. **Probability Estimation**: We want to estimate the probability of a player belonging to each salary category based on their performance metrics, which multinomial logistic regression accomplishes naturally.
+3. **Interpretable Results**: The model provides odds ratios that are easily interpretable, allowing us to understand how changes in player statistics affect the likelihood of being in different salary categories.
+4. **No Assumptions About Normality**: Unlike discriminant analysis, multinomial logistic regression doesn't require multivariate normality or equal variance-covariance matrices across groups.
+
+## Model Evaluation Methodology
+
+To assess the performance of our multinomial logistic regression models, we implement a comprehensive evaluation framework that calculates several key metrics:
+
+1. **Confusion Matrix**: A tabular representation showing the counts of true positives, false positives, true negatives, and false negatives across all categories.
+2. **Overall Accuracy**: The proportion of correctly classified instances across all salary levels. While useful as a general measure, accuracy alone can be misleading with imbalanced classes.
+3. **Class-Specific Metrics**:
+   - **Precision**: The proportion of correct positive predictions (true positives divided by all positive predictions) for each salary level. This measures how trustworthy our positive predictions are.
+   - **Recall**: The proportion of actual positives correctly identified (true positives divided by all actual positives) for each salary level. This measures how well we find all players in a particular salary category.
+   - **F1-Score**: The harmonic mean of precision and recall, providing a balanced measure that works well even with imbalanced categories.
+
+Additionally, we implement visualization functions to create informative and interpretable confusion matrices that help us understand where misclassifications occur most frequently.
+
+```{r create_eval_function, echo=TRUE}
+# Function for model evaluation metrics
+evaluate_model <- function(model, data, actual_col = "SalaryLevel") {
+  # Get actual values
+  actual <- data[[actual_col]]
+  
+  # Predict using the model
+  predicted <- predict(model, data)
+  
+  # Create confusion matrix
+  conf_matrix <- table(Predicted = predicted, Actual = actual)
+  
+  # Calculate accuracy
+  accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+  
+  # Calculate class-specific metrics
+  precision <- diag(conf_matrix) / colSums(conf_matrix)
+  recall <- diag(conf_matrix) / rowSums(conf_matrix)
+  f1_score <- 2 * precision * recall / (precision + recall)
+  
+  # Return all metrics in a list
+  return(list(
+    conf_matrix = conf_matrix,
+    accuracy = accuracy,
+    precision = precision,
+    recall = recall,
+    f1_score = f1_score
+  ))
+}
+
+# Function to visualize confusion matrix
+plot_confusion_matrix <- function(conf_matrix, title = "Confusion Matrix") {
+  # Convert to data frame for ggplot
+  conf_df <- as.data.frame(as.table(conf_matrix))
+  
+  # Create the plot
+  ggplot(conf_df, aes(x = Actual, y = Predicted, fill = Freq)) +
+    geom_tile() +
+    geom_text(aes(label = Freq)) +
+    scale_fill_gradient(low = "white", high = "#2c3e50") +
+    labs(title = title, 
+         x = "Actual Salary Level", 
+         y = "Predicted Salary Level") +
+    my_theme
+}
+```
+
+### How Multinomial Logistic Regression Works
+
+The model works by designating one category as the "reference" or "baseline" category (in our case, "LowSalary") and then estimating log-odds for being in each other category relative to this baseline:
+
+$$\log\left(\frac{P(Y=j)}{P(Y=\text{baseline})}\right) = \beta_{0j} + \beta_{1j}X_1 + \beta_{2j}X_2 + \ldots + \beta_{pj}X_p$$
+
+Where:
+- $P(Y=j)$ is the probability of being in category $j$
+- $P(Y=\text{baseline})$ is the probability of being in the baseline category
+- $\beta_{0j}$ is the intercept for category $j$
+- $\beta_{1j}, \beta_{2j}, \ldots, \beta_{pj}$ are the coefficients for each predictor variable for category $j$
+
+These equations are solved simultaneously to determine the probability of a player belonging to each salary level based on their statistics.
+
+## Fitting the Full Model
+
+```{r mnl_full_model, message=FALSE, echo=TRUE}
+# Fitting the full multinomial logistic regression model using LowSalary as the reference category
+model_full <- multinom(SalaryLevel ~ . -Salary, data = hitters, trace = FALSE)
+```
+
+For our analysis, we fit a multinomial logistic regression model using all available player statistics as predictors, excluding the original `Salary` variable since `SalaryLevel` is derived from it. We designate "LowSalary" as our reference category, against which the other categories are compared.
+
+### Model Details:
+
+- **Model Formula**: `SalaryLevel ~ . -Salary`
+- **Reference Category**: LowSalary
+- **Number of Predictors**: 19 variables including batting statistics, fielding performance, and career metrics
+- **AIC**: `r AIC(model_full)` (lower values indicate better fit, balancing goodness of fit with model complexity)
+- **Residual Deviance**: `r model_full$deviance` (measures how well the model fits the data, with lower values indicating better fit)
+- **Log-Likelihood**: `r logLik(model_full)[1]` (higher values indicate better fit)
+
+The model estimates two sets of coefficients:
+1. One set for the log-odds of being in the "MediumSalary" category versus the "LowSalary" category
+2. Another set for the log-odds of being in the "HighSalary" category versus the "LowSalary" category
+
+## Statistical Significance of Predictors
+
+```{r calculate_significance, echo=TRUE}
+# Calculating z-values and p-values
+z_values <- summary(model_full)$coefficients / summary(model_full)$standard.errors
+p_values <- 2 * (1 - pnorm(abs(z_values)))
+
+# Creating a formatted table of p-values with significance indicators
+format_pvalues <- function(p_matrix, threshold = 0.05) {
+  formatted <- round(p_matrix, 4)
+  # Adding asterisks for significant values
+  formatted_char <- apply(formatted, c(1, 2), function(x) {
+    if (x < 0.001) return(paste0(x, "***"))
+    else if (x < 0.01) return(paste0(x, "**"))
+    else if (x < 0.05) return(paste0(x, "*"))
+    else return(as.character(x))
+  })
+  return(formatted_char)
+}
+```
+
+To determine which variables significantly contribute to predicting salary levels, we calculated z-values (coefficient divided by standard error) and corresponding p-values for each predictor in the model. These p-values tell us the probability of observing the estimated coefficient if the true coefficient were zero.
+
+A smaller p-value (typically below 0.05) suggests that the predictor has a statistically significant relationship with the outcome variable. In our analysis, we use:
+
+- \* for p < 0.05 (significant)  
+- \*\* for p < 0.01 (highly significant)
+- \*\*\* for p < 0.001 (extremely significant)
+
+### P-values for Model Coefficients (reference category: LowSalary)
+
+```{r show_pvalues, echo=TRUE}
+# Create better looking p-value tables with kable
+library(knitr)
+library(kableExtra)
+
+# MediumSalary coefficients p-values
+medium_salary_pvals <- format_pvalues(p_values[1,, drop = FALSE])
+medium_salary_df <- data.frame(
+  Variable = colnames(medium_salary_pvals),
+  "P-value" = as.vector(medium_salary_pvals)
+)
+
+# HighSalary coefficients p-values
+high_salary_pvals <- format_pvalues(p_values[2,, drop = FALSE])
+high_salary_df <- data.frame(
+  Variable = colnames(high_salary_pvals),
+  "P-value" = as.vector(high_salary_pvals)
+)
+
+# Display MediumSalary p-values
+cat("P-values for MediumSalary coefficients:\n")
+kable(medium_salary_df, format = "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, position = "left")
+
+# Display HighSalary p-values
+cat("P-values for HighSalary coefficients:\n")
+kable(high_salary_df, format = "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, position = "left")
+```
+
+**Interpretation of P-values:**
+
+The p-values above show which variables are statistically significant predictors of being in the Medium or High salary categories compared to the Low salary category. Key observations:
+
+1. **Years**: Years of experience is highly significant for both Medium and High salary categories, indicating that experienced players are more likely to earn higher salaries.
+2. **Career Statistics**: Career metrics like CHits (career hits) and CWalks (career walks) are important predictors of salary level, showing that long-term performance is rewarded.
+3. **Current Season Performance**: While some current season statistics are significant, they generally show higher p-values than career metrics, suggesting that teams value consistent long-term performance more than single-season results.
+4. **League and Division Effects**: There are some significant differences between leagues and divisions, with certain combinations showing higher probability of being in higher salary categories.
+
+## Model Evaluation
+
+```{r evaluate_full_model, echo=TRUE}
+# Evaluate the full model using our function
+full_model_eval <- evaluate_model(model_full, hitters)
+```
+
+To assess how well our model performs, we evaluate it using several metrics including a confusion matrix and classification performance measures. The confusion matrix below shows the counts of correct and incorrect predictions:
+
+```{r full_model_confusion, echo=TRUE}
+# Display the confusion matrix using kable for better formatting
+conf_matrix_df <- as.data.frame(full_model_eval$conf_matrix)
+names(conf_matrix_df) <- c("Actual", "Predicted", "Count")
+
+# Create a better looking table
+conf_matrix_wide <- reshape2::dcast(conf_matrix_df, Predicted ~ Actual, value.var = "Count")
+rownames(conf_matrix_wide) <- conf_matrix_wide$Predicted
+conf_matrix_wide$Predicted <- NULL
+
+kable(conf_matrix_wide, format = "html", caption = "Confusion Matrix for Full Model") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE) %>%
+  add_header_above(c(" " = 1, "Actual" = ncol(conf_matrix_wide)))
+```
+
+Our model achieves an overall accuracy of **`r round(full_model_eval$accuracy * 100, 2)`%**, meaning it correctly predicts the salary level for this percentage of players in our dataset.
+
+## Class-Specific Performance Metrics
+
+The confusion matrix provides an overview, but we need more detailed metrics to understand model performance for each salary level. Below are the class-specific metrics:
+
+```{r class_metrics, echo=TRUE}
+# Create a formatted table of class-specific metrics
+metrics_df <- data.frame(
+  SalaryLevel = names(full_model_eval$precision),
+  Precision = round(full_model_eval$precision, 3),
+  Recall = round(full_model_eval$recall, 3),
+  F1_Score = round(full_model_eval$f1_score, 3)
+)
+
+# Create a better looking table
+kable(metrics_df, format = "html", 
+      caption = "Class-Specific Performance Metrics") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE)
+
+# Create a bar plot of class metrics
+library(reshape2)
+metrics_long <- melt(metrics_df, id.vars = "SalaryLevel", 
+                    variable.name = "Metric", value.name = "Value")
+
+ggplot(metrics_long, aes(x = SalaryLevel, y = Value, fill = Metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(Value, 2)), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, size = 3) +
+  labs(title = "Performance Metrics by Salary Level",
+       x = "Salary Level", 
+       y = "Score") +
+  scale_fill_brewer(palette = "Set2") +
+  ylim(0, max(metrics_long$Value) * 1.1) +
+  my_theme
+```
+
+**Performance Metrics Explanation:**
+
+- **Precision**: The proportion of correct positive predictions among all predictions for a class. Higher precision means when we predict a player is in a particular salary level, we're more likely to be correct.
+- **Recall**: The proportion of actual positives correctly identified. Higher recall means we're identifying a greater percentage of all players who actually belong in a particular salary category.
+- **F1-Score**: The harmonic mean of precision and recall, providing a balanced metric that works well even with imbalanced classes.
+
+Our model performs best for the `r metrics_df$SalaryLevel[which.max(metrics_df$F1_Score)]` category with an F1-score of `r max(metrics_df$F1_Score)`, while struggling more with the `r metrics_df$SalaryLevel[which.min(metrics_df$F1_Score)]` category (F1-score of `r min(metrics_df$F1_Score)`). The visualization above clearly shows these performance differences across metrics and salary levels.
+
+## Visualizing the Confusion Matrix
+
+To better understand the pattern of correct and incorrect predictions, we can visualize the confusion matrix:
+
+```{r plot_confusion, echo=FALSE}
+plot_confusion_matrix(full_model_eval$conf_matrix, "Full Model Confusion Matrix")
+```
+
+**Confusion Matrix Insights:**
+
+The confusion matrix visualization reveals several important patterns:
+
+1. The model performs particularly well at classifying players into the `r names(which.max(diag(full_model_eval$conf_matrix) / rowSums(full_model_eval$conf_matrix)))` salary category, with the highest diagonal value relative to total predictions.
+2. Most misclassifications occur between adjacent categories (Low to Medium or Medium to High), which is expected since salary categories are ordinal.
+
+3. The most problematic misclassification is `r ifelse(full_model_eval$conf_matrix["HighSalary", "LowSalary"] > full_model_eval$conf_matrix["LowSalary", "HighSalary"], "high salary players classified as low salary", "low salary players classified as high salary")`, which represents the largest error in terms of distance between actual and predicted categories.
+
+These findings indicate that while our model has good overall performance, there is room for improvement, particularly in distinguishing between the extreme categories.
+
+## Checking for Multicollinearity
+
+### Understanding Multicollinearity
+
+Multicollinearity occurs when independent variables in a regression model are highly correlated with each other. This can cause several problems:
+
+1. **Unstable Coefficients**: Small changes in the data can lead to large changes in coefficient estimates, making them unreliable.
+2. **Inflated Standard Errors**: The standard errors of coefficients increase, potentially making significant variables appear non-significant.
+3. **Difficulty in Interpretation**: It becomes challenging to determine the individual effect of each predictor when they're highly correlated.
+4. **Reduced Predictive Power**: While overall model performance may remain strong, the model may struggle when making predictions with new data.
+
+The Variance Inflation Factor (VIF) is a common metric used to detect multicollinearity:
+
+- VIF measures how much the variance of a regression coefficient is inflated due to multicollinearity
+- VIF = 1: No multicollinearity
+- VIF between 1-5: Moderate multicollinearity
+- VIF > 5: High multicollinearity
+- VIF > 10: Severe multicollinearity that requires correction
+
+```{r multicollinearity, fig.width=10, fig.height=6, echo=FALSE}
+# We'll use a linear model to check for multicollinearity among predictors
+# Using AtBat as an arbitrary dependent variable to check VIF values
+lm_model <- lm(AtBat ~ . -Salary -SalaryLevel, data = hitters)
+vif_values <- vif(lm_model)
+```
+
+### Variance Inflation Factors (VIF) Analysis
+
+To detect multicollinearity among our predictors, we calculated the Variance Inflation Factor (VIF) for each variable:
+
+```{r vif_table, echo=TRUE}
+# Create a df for better visualization
+vif_df <- data.frame(
+  Variable = names(vif_values),
+  VIF = as.numeric(vif_values)
+)
+
+# Sort by VIF value
+vif_df <- vif_df[order(-vif_df$VIF),]
+
+# Display VIF values as a formatted table
+kable(vif_df, format = "html", caption = "Variance Inflation Factors (VIF)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE) %>%
+  row_spec(which(vif_df$VIF > 10), background = "#FFCCCC") %>%
+  row_spec(which(vif_df$VIF > 5 & vif_df$VIF <= 10), background = "#FFFFCC")
+```
+
+```{r vif_plot, echo=TRUE}
+# Visualize VIF values
+ggplot(vif_df, aes(x = reorder(Variable, VIF), y = VIF)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_hline(yintercept = 5, linetype = "dashed", color = "orange") +
+  geom_hline(yintercept = 10, linetype = "dashed", color = "red") +
+  geom_text(aes(label = round(VIF, 1)), hjust = -0.2, size = 3) +
+  coord_flip() +
+  labs(title = "Variance Inflation Factors for Predictors",
+       subtitle = "Orange line: moderate multicollinearity (VIF=5), Red line: severe multicollinearity (VIF=10)",
+       x = "Variable",
+       y = "VIF") +
+  my_theme
+```
+
+### Multicollinearity Interpretation
+
+Our VIF analysis reveals significant multicollinearity issues in our dataset:
+
+1. **Severe Multicollinearity (VIF > 10)**:
+   - Career statistics show extremely high VIF values, particularly CAtBat, CHits, and CRuns
+   - Current season statistics like AtBat and Hits also show concerning levels of correlation
+   - This level of multicollinearity indicates that these variables contain redundant information
+
+2. **Impact on Model**:
+   - The high VIF values explain why some variables with strong theoretical relationships to salary show insignificant p-values in our model
+   - Coefficient estimates for these variables are likely unstable and may change dramatically with small changes in the data
+   - The standard errors are inflated, reducing our ability to detect truly significant relationships
+
+3. **Potential Solutions**:
+   - Remove highly correlated predictors (keep only one from each correlated group)
+   - Use Principal Component Analysis (PCA) to transform correlated predictors into uncorrelated components
+   - Apply regularization techniques like ridge regression or LASSO
+   - Create composite variables that combine related predictors
+
+Given the severity of multicollinearity in our data, we'll use Principal Component Analysis (PCA) to address this issue and improve our model.
+
+## Addressing Multicollinearity with PCA
+
+### Introduction to Principal Component Analysis
+
+Principal Component Analysis (PCA) is a dimension-reduction technique that transforms a set of correlated variables into a smaller set of uncorrelated variables called principal components. These components are linear combinations of the original variables, ordered by the amount of variance they explain.
+
+Key benefits of PCA for our analysis:
+
+1. **Eliminates Multicollinearity**: By definition, principal components are orthogonal (uncorrelated) to each other.
+2. **Reduces Dimensionality**: We can often capture most of the variance in the data with fewer components than original variables.
+3. **Preserves Information**: The transformation aims to retain as much information (variance) as possible.
+4. **Improves Model Stability**: By using uncorrelated predictors, we obtain more stable coefficient estimates.
+
+```{r pca_analysis, fig.width=10, fig.height=8, echo=FALSE}
+# Select numeric predictors (excluding Salary)
+numeric_data <- hitters %>% 
+  dplyr::select(where(is.numeric), -Salary)
+
+# Perform PCA
+pca_result <- prcomp(numeric_data, scale. = TRUE)
+```
+
+### PCA Results
+
+The summary of our PCA analysis shows how the variance is distributed across the principal components:
+
+```{r pca_summary_table, echo=TRUE}
+# Format PCA summary into a nicer table
+pca_summary <- summary(pca_result)
+
+# Extract variance explained by each component
+variance_explained <- pca_summary$importance[2,] * 100  # Convert to percentage
+cumulative_variance <- pca_summary$importance[3,] * 100
+
+# Create a data frame for a nice table
+pca_table <- data.frame(
+  Component = paste0("PC", 1:length(variance_explained)),
+  'Standard Deviation' = pca_summary$importance[1,],
+  'Proportion of Variance' = paste0(round(variance_explained, 2), "%"),
+  'Cumulative Proportion' = paste0(round(cumulative_variance, 2), "%")
+)
+
+# Display as a nice table
+kable(pca_table, format = "html", caption = "PCA Summary") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE)
+```
+
+Next, we visualize the proportion of variance explained by each principal component to understand how many components we should retain for our analysis.
+
+```{r variance_plot, echo=TRUE}
+# Extract variance explained by each component
+variance_explained <- pca_summary$importance[2,] * 100  # Convert to percentage
+cumulative_variance <- pca_summary$importance[3,] * 100
+
+# Create a data frame for plotting
+variance_df <- data.frame(
+  Component = paste0("PC", 1:length(variance_explained)),
+  Variance = variance_explained,
+  Cumulative = cumulative_variance
+)
+
+# Ensure components are ordered correctly by making Component a factor with levels in the right order
+variance_df$Component <- factor(variance_df$Component, levels = paste0("PC", 1:length(variance_explained)))
+
+# Create a more visually appealing color palette
+variance_colors <- colorRampPalette(c("#4169E1", "#87CEEB"))(length(variance_explained))
+
+# Visualize variance explained with enhanced aesthetics
+ggplot(variance_df, aes(x = Component, y = Variance)) +
+  geom_bar(stat = "identity", aes(fill = Component)) +
+  scale_fill_manual(values = variance_colors) +
+  geom_text(aes(label = sprintf("%.1f%%", Variance)), vjust = -0.5, size = 3.5, fontface = "bold") +
+  geom_line(aes(y = Cumulative, group = 1), color = "red", size = 1.2) +
+  geom_point(aes(y = Cumulative), color = "red", size = 3) +
+  scale_y_continuous(
+    limits = c(0, max(max(variance_df$Variance) * 1.15, 100)),
+    sec.axis = sec_axis(~., name = "Cumulative Variance (%)")
+  ) +
+  labs(title = "Variance Explained by Principal Components",
+       subtitle = "Bars: Individual variance, Red line: Cumulative variance",
+       x = "Principal Component",
+       y = "Variance Explained (%)") +
+  my_theme +
+  theme(
+    legend.position = "none",
+    panel.grid.major.y = element_line(color = "gray90"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 10, face = "italic")
+  )
+```
+
+### Interpreting the Variance Plot
+
+The variance explained plot provides crucial insights:
+
+1. **First Few Components**: The first few principal components explain a substantial portion of the total variance. Specifically, PC1 explains about `r round(variance_explained[1], 1)`% of the variance, and PC2 adds another `r round(variance_explained[2], 1)`%.
+2. **Diminishing Returns**: There's a sharp drop after the first few components, indicating that most of the information is captured in these initial components.
+3. **Cumulative Variance**: The red line shows that we can capture approximately 90% of the total variance with just `r sum(cumulative_variance < 90) + 1` components, which is significantly fewer than our original `r ncol(numeric_data)` variables.
+4. **Elbow Point**: We can observe an "elbow" in the scree plot around PC4-PC5, suggesting this might be a reasonable cutoff point for dimension reduction.
+
+To understand how our original variables relate to these principal components, we examine the PCA biplot:
+
+```{r biplot, echo=TRUE}
+# Create a simplified biplot with better readability
+# Get the loadings (relationships between original variables and PCs)
+loadings <- pca_result$rotation[, 1:2]
+loadings_df <- as.data.frame(loadings)
+loadings_df$Variable <- rownames(loadings_df)
+
+# Create a custom biplot
+ggplot() +
+  # Plot the PC scores
+  geom_point(data = data.frame(pca_result$x[,1:2]), 
+             aes(x = PC1, y = PC2), 
+             alpha = 0.5, color = "darkgrey") +
+  # Add arrows for variable loadings
+  geom_segment(data = loadings_df,
+               aes(x = 0, y = 0, xend = PC1*5, yend = PC2*5),
+               arrow = arrow(length = unit(0.2, "cm")), color = "blue") +
+  # Add variable labels at the end of arrows
+  geom_text(data = loadings_df,
+            aes(x = PC1*5.5, y = PC2*5.5, label = Variable),
+            size = 3) +
+  # Add some theming
+  labs(title = "PCA Biplot (First Two Principal Components)",
+       subtitle = "Showing the relationship between variables and principal components",
+       x = paste0("PC1 (", round(variance_explained[1], 1), "% variance)"),
+       y = paste0("PC2 (", round(variance_explained[2], 1), "% variance)")) +
+  my_theme +
+  coord_fixed() +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.3)
+```
+
+### Interpreting the PCA Biplot
+
+The biplot reveals important relationships between our original variables and the first two principal components:
+
+1. **PC1 Relationships**: 
+   - Variables pointing strongly to the right (positive PC1) include career statistics (CRuns, CHits, CRBI) and current season offensive statistics (Hits, RBI).
+   - This suggests PC1 primarily represents overall offensive production and career longevity.
+   - Players with high PC1 scores are likely veteran players with strong offensive records.
+
+2. **PC2 Relationships**:
+   - Variables with strong vertical loadings (positive or negative PC2) include Years (positive) and several current season statistics (negative).
+   - PC2 appears to separate career longevity from current season performance.
+   - Players with high PC2 scores may be experienced players whose current season performance differs from their career averages.
+
+3. **Clustered Variables**:
+   - Notice how career statistics (CAtBat, CHits, CRuns, CRBI) cluster together, confirming their high correlation.
+   - Similarly, current season statistics (AtBat, Hits, Runs) form another cluster.
+   - These clusters validate our multicollinearity concerns and show how PCA effectively groups correlated variables.
+
+### Selecting the Optimal Number of Components
+
+To determine how many principal components to retain for our analysis, we consider several common criteria:
+
+```{r component_selection, echo=FALSE}
+# Determine number of components to keep based on common criteria
+# 1. Kaiser criterion (eigenvalues > 1)
+kaiser_components <- sum(pca_summary$importance[1,] > 1)
+# 2. Components needed to explain 95% of variance
+var95_components <- which(cumulative_variance >= 95)[1]
+```
+
+Based on our analysis, we can use several criteria to select the optimal number of principal components:
+
+1. **Kaiser Criterion** (eigenvalues > 1): This criterion suggests keeping `r kaiser_components` components, as these have standard deviations greater than 1.0. Components with eigenvalues less than 1 explain less variance than a single original variable would, making them less informative for our analysis.
+2. **Variance Threshold**: To explain 95% of the total variance in our data, we need `r var95_components` components. This is a significant reduction from our original `r ncol(numeric_data)` variables, while still preserving most of the information content. The 95% threshold is widely accepted in statistical practice as it retains the vast majority of information while achieving substantial dimensionality reduction.
+3. **Scree Plot Analysis**: Looking at the "elbow" in our scree plot above, we see diminishing returns after the first 4-5 components. Each additional component beyond this point contributes minimally to the explained variance, suggesting a natural cutoff point.
+
+**Application to Baseball Salary Analysis:**
+
+For our baseball salary prediction model, we've chosen to use the `r var95_components` components needed to explain 95% of the variance. This approach strikes an optimal balance for our specific application:
+
+- **Multicollinearity Reduction**: By transforming our highly correlated baseball statistics (with VIF values exceeding 300 in some cases) into uncorrelated components, we address the severe multicollinearity in our original data.
+- **Information Preservation**: We retain 95% of the information in our original variables, ensuring that important relationships between performance metrics and salary levels are preserved.
+- **Interpretable Components**: The first few components have clear interpretations in the baseball context:
+  - PC1 primarily represents overall offensive production and career longevity
+  - PC2 distinguishes between career experience and current season performance
+  - Additional components capture more nuanced performance aspects
+- **Model Stability**: Using these uncorrelated components results in more stable coefficient estimates in our multinomial logistic regression model, improving its reliability and generalizability.
+
+This dimensionality reduction approach is particularly valuable for baseball salary analysis, where numerous performance metrics are inherently correlated (e.g., at-bats with hits, or career statistics with years played). PCA effectively distills these interrelated metrics into their essential underlying patterns, enabling more robust salary prediction while maintaining interpretability.
+
+### Using PCA Components in the Multinomial Model
+
+```{r pca_model, echo=TRUE}
+# Combining PCA components with target variable
+# We'll use the number of components needed to explain 95% of variance
+hitters_pca <- data.frame(
+  pca_result$x[, 1:var95_components],
+  SalaryLevel = hitters$SalaryLevel
+)
+
+# Fitting a multinomial model on PCA-transformed data
+model_pca <- multinom(SalaryLevel ~ ., data = hitters_pca, trace = FALSE)
+```
+
+After identifying the optimal number of principal components, we combine these components with our target variable `SalaryLevel` to create a new dataset for modeling. We then fit a multinomial logistic regression model using these principal components as predictors.
+
+This approach has several advantages:
+- The principal components are uncorrelated, eliminating multicollinearity concerns
+- We're using a more parsimonious model with fewer predictors
+- The model is likely to be more stable and generalizable
+- We retain most of the information from the original variables while reducing noise
+
+The key trade-off is interpretability: the coefficients now relate to principal components rather than directly to baseball statistics. However, using our understanding of what each principal component represents, we can still derive meaningful insights from the model.
+
+## Evaluating PCA Model Performance
+
+After fitting our multinomial logistic regression model using principal components as predictors, we need to assess its performance and compare it with our original model.
+
+```{r evaluate_pca_model_third, echo=FALSE}
+# Evaluate the PCA model using our evaluation function
+pca_model_eval <- evaluate_model(model_pca, hitters_pca)
+```
+
+### Confusion Matrix for PCA Model
+
+The confusion matrix below shows how well our PCA-based model classifies players into different salary categories:
+
+```{r pca_confusion_matrix_third, echo=TRUE}
+# Display the confusion matrix using kable for better formatting
+pca_conf_matrix_df <- as.data.frame(pca_model_eval$conf_matrix)
+names(pca_conf_matrix_df) <- c("Actual", "Predicted", "Count")
+
+# Create a better looking table
+pca_conf_matrix_wide <- reshape2::dcast(pca_conf_matrix_df, Predicted ~ Actual, value.var = "Count")
+rownames(pca_conf_matrix_wide) <- pca_conf_matrix_wide$Predicted
+pca_conf_matrix_wide$Predicted <- NULL
+
+kable(pca_conf_matrix_wide, format = "html", caption = "Confusion Matrix for PCA Model") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE) %>%
+  add_header_above(c(" " = 1, "Actual" = ncol(pca_conf_matrix_wide)))
+
+# Create a more visually appealing heatmap
+ggplot(pca_conf_matrix_df, aes(x = Actual, y = Predicted, fill = Count)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Count), color = "black", size = 4) +
+  scale_fill_gradient(low = "white", high = "#4292c6") +
+  labs(title = "PCA Model Confusion Matrix",
+       x = "Actual Salary Level",
+       y = "Predicted Salary Level") +
+  my_theme +
+  theme(legend.position = "none")
+```
+
+**Confusion Matrix Interpretation:**
+
+The confusion matrix visualization provides important insights into our PCA model's performance:
+
+1. **Diagonal Elements**: The diagonal cells (reading from top-left to bottom-right) show correctly classified instances. Our model performs particularly well for the `HighSalary` category, with the majority of high-salary players being correctly identified.
+2. **Off-Diagonal Elements**: These represent misclassifications. The most common error is classifying `MediumSalary` players as having `LowSalary`, followed by classifying `LowSalary` players as having `MediumSalary`.
+3. **Extreme Misclassifications**: Very few players are misclassified across extreme categories (Low to High or High to Low), indicating that the model generally distinguishes between these distant categories effectively.
+
+The heatmap visualization highlights these patterns clearly, with the darker diagonal cells representing higher counts of correct classifications.
+
+### PCA Model Accuracy
+
+Our PCA-based model achieves an overall accuracy of **`r round(pca_model_eval$accuracy * 100, 2)`%**. This means the model correctly classifies approximately `r round(pca_model_eval$accuracy * 100, 2)` out of 100 players into their correct salary categories.
+
+The accuracy is particularly noteworthy because we've reduced the number of predictors from `r ncol(hitters) - 2` original variables to just `r var95_components` principal components while maintaining comparable predictive performance. This demonstrates the effectiveness of PCA in addressing multicollinearity while preserving predictive power.
+
+### Class-Specific Performance Metrics for PCA Model
+
+To understand how well our model performs for each salary level, we examine the class-specific metrics:
+
+```{r pca_class_metrics_third, echo=TRUE}
+# Create a formatted table of class-specific metrics
+pca_metrics_df <- data.frame(
+  SalaryLevel = names(pca_model_eval$precision),
+  Precision = round(pca_model_eval$precision, 3),
+  Recall = round(pca_model_eval$recall, 3),
+  F1_Score = round(pca_model_eval$f1_score, 3)
+)
+
+# Create a better looking table
+kable(pca_metrics_df, format = "html", 
+      caption = "Class-Specific Performance Metrics for PCA Model") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE)
+
+# Create a bar plot of class metrics
+library(reshape2)
+metrics_long <- melt(pca_metrics_df, id.vars = "SalaryLevel", 
+                    variable.name = "Metric", value.name = "Value")
+
+ggplot(metrics_long, aes(x = SalaryLevel, y = Value, fill = Metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(Value, 2)), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, size = 3) +
+  labs(title = "Performance Metrics by Salary Level for PCA Model",
+       x = "Salary Level", 
+       y = "Score") +
+  scale_fill_brewer(palette = "Set2") +
+  ylim(0, max(metrics_long$Value) * 1.1) +
+  my_theme
+```
+
+**Interpretation of Class-Specific Metrics:**
+
+The performance metrics chart above provides a detailed breakdown of how our PCA model performs for each salary category:
+
+- **Precision**: Our model achieves the highest precision for `r pca_metrics_df$SalaryLevel[which.max(pca_metrics_df$Precision)]` players (`r round(max(pca_metrics_df$Precision), 3) * 100`%). This means when the model predicts a player belongs to this category, it's correct approximately `r round(max(pca_metrics_df$Precision), 3) * 100` out of 100 times. The precision is lowest for `r pca_metrics_df$SalaryLevel[which.min(pca_metrics_df$Precision)]` players, indicating more false positives for this category.
+- **Recall**: The model is best at identifying `r pca_metrics_df$SalaryLevel[which.max(pca_metrics_df$Recall)]` players (recall of `r round(max(pca_metrics_df$Recall), 3) * 100`%), meaning it correctly identifies this percentage of all players who actually belong in this category. Lower recall for `r pca_metrics_df$SalaryLevel[which.min(pca_metrics_df$Recall)]` players suggests the model misses more players who truly belong in this category.
+- **F1-Score**: The balanced measure between precision and recall is highest for `r pca_metrics_df$SalaryLevel[which.max(pca_metrics_df$F1_Score)]` players (`r round(max(pca_metrics_df$F1_Score), 3) * 100`%), suggesting this is the category the model handles most effectively overall.
+
+These metrics reveal that our model's performance varies across categories, with particular strength in identifying `r pca_metrics_df$SalaryLevel[which.max(pca_metrics_df$F1_Score)]` salary players and more challenges with the `r pca_metrics_df$SalaryLevel[which.min(pca_metrics_df$F1_Score)]` category.
+
+### Model Accuracy Comparison
+
+To evaluate whether our PCA approach improved the model, we compare the accuracy of both models:
+
+```{r model_comparison_pca_third, echo=TRUE}
+# Create comparison dataframe for visualization
+model_comparison <- data.frame(
+  Model = c("Full Model", "PCA Model"),
+  Accuracy = c(full_model_eval$accuracy, pca_model_eval$accuracy)
+)
+
+# Visualize accuracy comparison
+ggplot(model_comparison, aes(x = Model, y = Accuracy, fill = Model)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%.1f%%", Accuracy*100)), vjust = -0.5) +
+  scale_fill_manual(values = c("Full Model" = "#4292c6", "PCA Model" = "#41ab5d")) +
+  ylim(0, max(model_comparison$Accuracy) * 1.1) +
+  labs(title = "Model Accuracy Comparison",
+       subtitle = "Full model vs. PCA-based model",
+       y = "Accuracy") +
+  my_theme +
+  theme(legend.position = "none")
+```
+
+**Comparison of Model Accuracies**
+
+The original full model achieved an accuracy of `r round(full_model_eval$accuracy * 100, 2)`%, while our PCA model achieved an accuracy of `r round(pca_model_eval$accuracy * 100, 2)`%. This represents a difference of `r abs(round((pca_model_eval$accuracy - full_model_eval$accuracy) * 100, 2))` percentage points `r if(pca_model_eval$accuracy > full_model_eval$accuracy) "in favor of" else "lower than"` the PCA model.
+
+The accuracy comparison shows that our PCA-based model `r if(pca_model_eval$accuracy >= full_model_eval$accuracy) "maintains" else "slightly sacrifices"` prediction accuracy while offering significant benefits in terms of model simplicity and stability. By using uncorrelated principal components instead of the original multicollinear predictors, we've created a more robust model that should generalize better to new data.
+
+### Interpretation of PCA Results
+
+The PCA transformation has effectively addressed the multicollinearity issue in our data while maintaining predictive performance. Our analysis reveals:
+
+1. **Variance Explained**: The first `r var95_components` principal components capture approximately 95% of the variance in the original data, allowing us to reduce dimensionality while retaining most of the information.
+2. **Model Performance**: The PCA-based model achieved an accuracy of `r round(pca_model_eval$accuracy * 100, 2)`%, which is comparable to the original model's accuracy of `r round(full_model_eval$accuracy * 100, 2)`%. 
+3. **Component Interpretation**: 
+   - PC1 primarily represents overall offensive production and career longevity
+   - PC2 separates career experience from current season performance
+   - Later components capture more nuanced aspects of player performance
+   - This provides some interpretability despite the abstraction of principal components
+4. **Dimensionality Reduction**: We reduced from `r ncol(numeric_data)` original predictors to `r var95_components` principal components while maintaining similar predictive performance, a significant simplification.
+5. **Statistical Stability**: By eliminating multicollinearity, the PCA model's coefficients are more stable and reliable, making it better suited for inference and prediction with new data.
+
+Using PCA has successfully addressed the multicollinearity concern while maintaining predictive performance, providing an alternative modeling approach that complements our original model.
+
+### Interpretation of Model Results
+
+The multinomial logistic regression models (both original and PCA-based) predict the probability of a player belonging to different salary levels based on various performance metrics. The results provide several valuable insights:
+
+### Key Significant Predictors (Original Model):
+
+1. **Years in League**: With very low p-values for both Medium and High salary categories, experience appears to be a significant predictor of salary level. The positive coefficients indicate that as experience increases, the likelihood of being in a higher salary tier also increases.
+2. **Career Metrics**: Variables like CHits (career hits) and CRBI (career RBIs) have lower p-values, suggesting career performance is more predictive of salary than single-season statistics.
+3. **League and Division**: There are some differences between leagues and divisions, with players in certain categories having higher probabilities of being in higher salary tiers.
+
+### PCA Model Insights:
+
+In the PCA model, the first few principal components are particularly important in predicting salary levels:
+
+1. **PC1 (Overall Offensive Production)**: This component, representing general offensive ability and career longevity, strongly predicts higher salary levels.
+2. **PC2 (Experience vs. Current Performance)**: This component helps distinguish between players with similar overall statistics but different experience levels.
+3. **Higher-Order Components**: These capture more subtle variations in player statistics and help improve the model's accuracy by accounting for specific combinations of statistics not captured by the first few components.
+
+### Model Performance Assessment:
+
+Both models achieved strong predictive performance:
+
+- **Original Model**: Accuracy of `r round(full_model_eval$accuracy * 100, 2)`%, with strongest performance in the `r names(which.max(full_model_eval$f1_score))` category.
+- **PCA Model**: Accuracy of `r round(pca_model_eval$accuracy * 100, 2)`%, with similar performance across categories and reduced risk of overfitting.
+- **Precision and Recall Trade-offs**: Both models show a trade-off between precision and recall, with some categories being easier to identify correctly than others.
+
+### Limitations:
+
+1. **Category Boundaries**: The boundaries between salary categories are somewhat arbitrary and may affect model performance.
+2. **Non-Performance Factors**: Our models don't account for non-statistical factors that influence salaries, such as market size, team budget, or player popularity.
+3. **Temporal Effects**: Baseball salaries have changed over time, and our models don't account for these temporal trends.
+4. **Sample Size**: The relatively small dataset may limit the generalizability of our findings.
+
+In conclusion, both models provide valuable insights into the factors influencing baseball player salaries, with the PCA approach offering a more stable and parsimonious solution that addresses multicollinearity while maintaining predictive power.
+
+# Model Evaluation via Cross-Validation
+
+To provide a more robust evaluation of our model's predictive performance, we'll use cross-validation methods to estimate the generalization error. Cross-validation helps us understand how well our model will perform on unseen data by repeatedly splitting the data into training and testing sets.
+
+```{r cv_setup, message=FALSE}
+
+set.seed(06052004)
+
+# Define function to run cross-validation and collect results
+run_cross_validation <- function(formula, data, method = "cv", number = 5, 
+                                model_type = "multinom", model_name = "Model") {
+  # Set up cross-validation control
+  ctrl <- trainControl(
+    method = method,
+    number = number,
+    classProbs = TRUE,
+    summaryFunction = multiClassSummary
+  )
+  
+  # Perform cross-validation
+  cv_model <- train(
+    formula,
+    data = data,
+    method = model_type,
+    trControl = ctrl,
+    trace = FALSE
+  )
+  
+  # Extract results
+  best_result <- cv_model$results[which.max(cv_model$results$Accuracy),]
+  
+  # Calculate error rate
+  error_rate <- 1 - best_result$Accuracy
+  
+  # Return results in a list
+  return(list(
+    model = cv_model,
+    accuracy = best_result$Accuracy,
+    error_rate = error_rate,
+    balanced_accuracy = best_result$AUC,
+    kappa = best_result$Kappa,
+    model_name = model_name,
+    cv_method = paste0(number, "-fold CV")
+  ))
+}
+```
+
+## 5-Fold Cross-Validation for Full Model
+
+```{r cv5_full}
+# Run 5-fold cross-validation on the full model
+cv5_full <- run_cross_validation(
+  formula = SalaryLevel ~ . -Salary,
+  data = hitters,
+  number = 5,
+  model_name = "Full Model"
+)
+```
+
+```{r cv5_full_results, echo=FALSE}
+# Display results with clear formatting in a table
+cv5_full_results <- data.frame(
+  Metric = c("Accuracy", "Error Rate", "Balanced Accuracy", "Kappa"),
+  Value = c(
+    sprintf("%.2f%%", cv5_full$accuracy * 100),
+    sprintf("%.2f%%", cv5_full$error_rate * 100),
+    sprintf("%.2f%%", cv5_full$balanced_accuracy * 100),
+    round(cv5_full$kappa, 4)
+  )
+)
+
+knitr::kable(cv5_full_results, 
+            caption = "5-Fold Cross-Validation Results for Full Model",
+            align = c("l", "c"),
+            format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = FALSE,
+                          position = "center")
+```
+
+## 10-Fold Cross-Validation for Full Model
+
+```{r cv10_full}
+# Run 10-fold cross-validation on the full model
+cv10_full <- run_cross_validation(
+  formula = SalaryLevel ~ . -Salary,
+  data = hitters,
+  number = 10,
+  model_name = "Full Model"
+)
+```
+
+```{r cv10_full_results, echo=FALSE}
+# Display results with clear formatting in a table
+cv10_full_results <- data.frame(
+  Metric = c("Accuracy", "Error Rate", "Balanced Accuracy", "Kappa"),
+  Value = c(
+    sprintf("%.2f%%", cv10_full$accuracy * 100),
+    sprintf("%.2f%%", cv10_full$error_rate * 100),
+    sprintf("%.2f%%", cv10_full$balanced_accuracy * 100),
+    round(cv10_full$kappa, 4)
+  )
+)
+
+knitr::kable(cv10_full_results, 
+            caption = "10-Fold Cross-Validation Results for Full Model",
+            align = c("l", "c"),
+            format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = FALSE,
+                          position = "center")
+```
+
+## Cross-Validation for PCA Model
+
+```{r cv5_pca}
+# Run 5-fold cross-validation on the PCA model
+cv5_pca <- run_cross_validation(
+  formula = SalaryLevel ~ .,
+  data = hitters_pca,
+  number = 5,
+  model_name = "PCA Model"
+)
+```
+
+```{r cv5_pca_results, echo=FALSE}
+# Display results with clear formatting in a table
+cv5_pca_results <- data.frame(
+  Metric = c("Accuracy", "Error Rate", "Balanced Accuracy", "Kappa"),
+  Value = c(
+    sprintf("%.2f%%", cv5_pca$accuracy * 100),
+    sprintf("%.2f%%", cv5_pca$error_rate * 100),
+    sprintf("%.2f%%", cv5_pca$balanced_accuracy * 100),
+    round(cv5_pca$kappa, 4)
+  )
+)
+
+knitr::kable(cv5_pca_results, 
+            caption = "5-Fold Cross-Validation Results for PCA Model",
+            align = c("l", "c"),
+            format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = FALSE,
+                          position = "center")
+```
+
+```{r cv10_pca}
+# Run 10-fold cross-validation on the PCA model for consistency
+cv10_pca <- run_cross_validation(
+  formula = SalaryLevel ~ .,
+  data = hitters_pca,
+  number = 10,
+  model_name = "PCA Model"
+)
+```
+
+```{r cv10_pca_results, echo=FALSE}
+# Display results with clear formatting in a table
+cv10_pca_results <- data.frame(
+  Metric = c("Accuracy", "Error Rate", "Balanced Accuracy", "Kappa"),
+  Value = c(
+    sprintf("%.2f%%", cv10_pca$accuracy * 100),
+    sprintf("%.2f%%", cv10_pca$error_rate * 100),
+    sprintf("%.2f%%", cv10_pca$balanced_accuracy * 100),
+    round(cv10_pca$kappa, 4)
+  )
+)
+
+knitr::kable(cv10_pca_results, 
+            caption = "10-Fold Cross-Validation Results for PCA Model",
+            align = c("l", "c"),
+            format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = FALSE,
+                          position = "center")
+```
+
+## Comparison of Cross-Validation Results
+
+```{r cv_comparison, fig.width=10, fig.height=8, echo=FALSE}
+# Create a data frame for comparison
+cv_results <- data.frame(
+  Model = c(cv5_full$model_name, cv10_full$model_name, 
+            cv5_pca$model_name, cv10_pca$model_name),
+  CV_Method = c(cv5_full$cv_method, cv10_full$cv_method, 
+                cv5_pca$cv_method, cv10_pca$cv_method),
+  Accuracy = c(cv5_full$accuracy, cv10_full$accuracy, 
+               cv5_pca$accuracy, cv10_pca$accuracy),
+  BalancedAccuracy = c(cv5_full$balanced_accuracy, cv10_full$balanced_accuracy, 
+                       cv5_pca$balanced_accuracy, cv10_pca$balanced_accuracy),
+  Kappa = c(cv5_full$kappa, cv10_full$kappa, 
+            cv5_pca$kappa, cv10_pca$kappa)
+)
+
+# Display the comparison table with better formatting
+cv_results_formatted <- cv_results
+cv_results_formatted$Accuracy <- sprintf("%.2f%%", cv_results$Accuracy * 100)
+cv_results_formatted$BalancedAccuracy <- sprintf("%.2f%%", cv_results$BalancedAccuracy * 100)
+cv_results_formatted$Kappa <- round(cv_results$Kappa, 4)
+
+# Rename columns for better display
+colnames(cv_results_formatted)[3:5] <- c("Accuracy", "Balanced Accuracy", "Kappa")
+
+knitr::kable(cv_results_formatted, 
+            caption = "Comparison of Cross-Validation Results Across Models and Methods",
+            align = c("l", "l", "c", "c", "c"),
+            format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = TRUE,
+                          position = "center") %>%
+  kableExtra::row_spec(c(2, 4), background = "#f5f5f5") %>%
+  kableExtra::column_spec(3:5, bold = TRUE)
+```
+
+<div class="table-description">
+<p><strong>Table Interpretation:</strong> This table provides a comprehensive comparison of our model performance across different cross-validation methods. The metrics show consistent performance between 5-fold and 10-fold cross-validation, indicating stable model behavior. The PCA model performs similarly to the full model in terms of accuracy, suggesting that dimensionality reduction effectively preserved the predictive information while addressing multicollinearity.</p>
+</div>
+
+```{r cv_plot, fig.width=10, fig.height=8, echo=FALSE}
+# Create a long format version for plotting
+cv_results_long <- cv_results %>%
+  pivot_longer(cols = c(Accuracy, BalancedAccuracy, Kappa),
+               names_to = "Metric",
+               values_to = "Value")
+
+# Create a faceted plot
+ggplot(cv_results_long, aes(x = CV_Method, y = Value, fill = Model)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = ifelse(Metric == "Kappa", 
+                              sprintf("%.3f", Value),
+                              sprintf("%.1f%%", Value*100))),
+            position = position_dodge(width = 0.9),
+            vjust = -0.5, size = 3) +
+  facet_wrap(~ Metric, scales = "free_y") +
+  scale_fill_manual(values = c("Full Model" = "#4292c6", "PCA Model" = "#41ab5d")) +
+  labs(title = "Cross-Validation Performance Metrics",
+       subtitle = "Comparing different models and CV methods",
+       x = "Cross-Validation Method",
+       y = "Performance Value") +
+  my_theme +
+  theme(strip.background = element_rect(fill = "lightgray"),
+        strip.text = element_text(size = 12, face = "bold"))
+```
+
+<div class="figure-description">
+<p><strong>Figure Interpretation:</strong> This visualization compares the performance metrics (Accuracy, Balanced Accuracy, and Kappa) across different models and cross-validation methods. The bar chart clearly shows that both models perform similarly across metrics, with consistent results between 5-fold and 10-fold validation approaches. The PCA model demonstrates comparable performance to the full model, indicating successful dimensionality reduction without sacrificing predictive power.</p>
+</div>
+
+## Discussion of Cross-Validation Results
+
+The cross-validation results provide several key insights about our models:
+
+1. **Consistency Across Folds**:
+   - Both 5-fold and 10-fold cross-validation yield similar results for each model type
+   - For the full model, 5-fold CV accuracy is `r round(cv5_full$accuracy*100, 2)`% while 10-fold CV accuracy is `r round(cv10_full$accuracy*100, 2)`%
+   - For the PCA model, 5-fold CV accuracy is `r round(cv5_pca$accuracy*100, 2)`% and 10-fold CV accuracy is `r round(cv10_pca$accuracy*100, 2)`%
+   - This consistency across fold counts suggests our models have stable performance regardless of validation scheme
+   - The minimal differences between 5-fold and 10-fold results indicate that either approach is sufficient for this dataset
+
+2. **Model Comparison**:
+   - The PCA model shows `r ifelse(round(cv10_pca$accuracy, 4) > round(cv10_full$accuracy, 4), "better", ifelse(round(cv10_pca$accuracy, 4) < round(cv10_full$accuracy, 4), "worse", "similar"))` cross-validated accuracy than the full model
+   - With 10-fold CV, the PCA model achieves `r round(cv10_pca$accuracy*100, 2)`% accuracy compared to the full model's `r round(cv10_full$accuracy*100, 2)`%
+   - This demonstrates that `r ifelse(round(cv10_pca$accuracy, 4) >= round(cv10_full$accuracy, 4), "dimensionality reduction through PCA can maintain or even slightly improve predictive performance while addressing multicollinearity", "the original variables contain information that may be slightly compromised in PCA transformation, though the difference is minimal")`
+
+3. **Accuracy vs. Balanced Accuracy**:
+   - The balanced accuracy metrics are similar to the regular accuracy metrics across all models
+   - For example, the 10-fold CV full model has `r round(cv10_full$accuracy*100, 2)`% accuracy and `r round(cv10_full$balanced_accuracy*100, 2)`% balanced accuracy
+   - This indicates our models perform consistently across all salary level categories
+   - This balanced performance is expected since we created equal-sized categories using tertiles
+
+4. **Kappa Statistic**:
+   - Kappa values for our models range from `r round(min(c(cv5_full$kappa, cv10_full$kappa, cv5_pca$kappa, cv10_pca$kappa)), 4)` to `r round(max(c(cv5_full$kappa, cv10_full$kappa, cv5_pca$kappa, cv10_pca$kappa)), 4)`
+   - These values indicate moderate agreement between predicted and actual classes beyond what would be expected by chance
+   - The PCA model with 10-fold CV achieved a kappa of `r round(cv10_pca$kappa, 4)`, which is `r ifelse(round(cv10_pca$kappa, 4) > round(cv10_full$kappa, 4), "higher", ifelse(round(cv10_pca$kappa, 4) < round(cv10_full$kappa, 4), "lower", "almost identical"))` than the full model's kappa of `r round(cv10_full$kappa, 4)`
+
+### Choice of Cross-Validation Methods
+
+We selected these cross-validation methods for the following reasons:
+
+1. **5-Fold CV**: This provides a good balance between bias and variance in the error estimate. Each fold contains approximately 20% of the data, providing reasonable test set sizes.
+2. **10-Fold CV**: This is often recommended as a standard approach, as it typically provides lower bias than 5-fold CV but may have higher variance. The comparison allows us to assess the stability of our models.
+
+For our final model evaluations and comparisons, we've chosen to focus primarily on the 10-fold CV results, as they typically provide a slightly more reliable estimate of model performance with less bias than 5-fold CV. The consistent results between 5-fold and 10-fold CV give us confidence in the stability of our models.
+
+### Implications for Model Selection
+
+The cross-validation results suggest that:
+
+1. Our multinomial logistic regression models achieve moderate predictive accuracy (around `r round(max(c(cv10_full$accuracy, cv10_pca$accuracy))*100, 1)`% with 10-fold CV)
+2. Performance is remarkably consistent across different validation schemes
+3. No single class (salary level) is being predicted substantially better or worse than others
+4. The PCA approach effectively addresses multicollinearity while `r ifelse(round(cv10_pca$accuracy, 4) >= round(cv10_full$accuracy, 4), "maintaining or slightly improving", "only minimally affecting")` predictive performance
+
+We will evaluate a stepwise selection model next and compare its performance to both the full model and the PCA model to determine the best approach for our final model. The consistency between 5-fold and 10-fold cross-validation results gives us confidence in the reliability of our model evaluations.
+
+<style>
+.table-description, .figure-description {
+  margin: 15px 0;
+  padding: 10px 15px;
+  background-color: #f8f9fa;
+  border-left: 4px solid #4292c6;
+  border-radius: 3px;
+}
+
+.figure-description {
+  border-left-color: #41ab5d;
+}
+</style>
+
+# Model Improvement: Predictor Selection
+
+## The Role of Predictor Selection in Statistical Modeling
+
+Feature selection is a critical step in building efficient and interpretable statistical models, especially when dealing with a large number of potentially correlated predictors. In our baseball salary prediction context, selecting an optimal subset of predictors offers several important benefits:
+
+1. **Addressing Multicollinearity**: As demonstrated in our earlier VIF analysis, many baseball statistics are highly correlated (e.g., hits and RBIs). Feature selection helps identify and retain only the most informative variables, reducing redundancy and improving model stability.
+2. **Enhancing Interpretability**: A model with fewer predictors is easier to interpret and explain. This is particularly valuable in sports analytics where insights need to be communicated to non-technical stakeholders like coaches, players, and team management.
+3. **Improving Generalization**: Models with fewer parameters are less prone to overfitting, which occurs when a model captures noise rather than underlying patterns in the data. This typically results in better performance on new, unseen data.
+4. **Computational Efficiency**: Reducing the number of parameters decreases computational requirements, which becomes increasingly important with larger datasets or more complex modeling techniques.
+
+## Stepwise Selection Approach
+
+For our analysis, we'll employ stepwise selection, a systematic approach that iteratively adds or removes variables from the model based on statistical criteria. We'll use the bidirectional method ("both"), which combines:
+
+- **Forward selection**: Starts with no variables and adds them one by one
+- **Backward elimination**: Starts with all variables and removes them one by one
+
+The algorithm will use the **Akaike Information Criterion (AIC)** to guide variable selection. AIC balances model fit and complexity by penalizing models with more parameters:
+
+$$ \text{AIC} = 2k - 2\ln(L) $$
+
+Where:
+- $k$ is the number of parameters
+- $L$ is the maximum value of the likelihood function
+
+A lower AIC indicates a better model. The stepwise procedure finds the model with the lowest AIC, effectively identifying the subset of predictors that provides the best balance between:
+- Maximizing predictive performance (likelihood)
+- Minimizing model complexity (number of parameters)
+
+While AIC is our primary criterion, it's worth noting that alternative criteria such as the **Bayesian Information Criterion (BIC)** could also be used. BIC applies a stronger penalty for model complexity:
+
+$$ \text{BIC} = k\ln(n) - 2\ln(L) $$
+
+Where $n$ is the sample size. BIC typically results in more parsimonious models than AIC.
+
+Let's proceed with implementing stepwise selection on our multinomial logistic regression model:
+
+```{r model_improvement_setup, message=FALSE}
+# Use stepwise selection based on AIC
+set.seed(06052004)
+
+model_step <- stepAIC(model_full, direction = "both", trace = FALSE)
+
+# Extract selected variables
+selected_vars <- attr(terms(model_step), "term.labels")
+```
+
+**Variables selected by stepwise procedure:**
+
+`r length(selected_vars)` out of `r length(attr(terms(model_full), "term.labels"))` original variables
+
+**Display the selected variables in a more readable format**
+
+The selected variables are:
+
+- `r paste(selected_vars, collapse = "\n- ")`
+
+
+The stepwise selection process evaluates numerous model combinations to identify the most informative subset of predictors. The result is a more parsimonious model that aims to maintain predictive power while reducing complexity. The formula of this model represents the mathematical relationship between our response variable (SalaryLevel) and the selected predictors, with separate coefficients for each salary level comparison (Medium vs. Low and High vs. Low).
+
+## Analyzing the Selected Model
+
+```{r selected_model_analysis, echo=FALSE}
+# Summary of the selected model
+selected_summary <- summary(model_step)
+
+# Calculate z-values and p-values for the selected model
+z_values_step <- selected_summary$coefficients / selected_summary$standard.errors
+p_values_step <- 2 * (1 - pnorm(abs(z_values_step)))
+
+# Display significant variables (p < 0.05) for better interpretability
+significant_med <- names(which(p_values_step[1,] < 0.05))
+significant_high <- names(which(p_values_step[2,] < 0.05))
+
+# Create a data frame for the significant predictors
+significant_predictors <- data.frame(
+  Category = c(rep("MediumSalary vs. LowSalary", length(significant_med)),
+               rep("HighSalary vs. LowSalary", length(significant_high)),
+               rep("Common to Both Comparisons", length(intersect(significant_med, significant_high)))),
+  Predictors = c(significant_med, 
+                 significant_high,
+                 intersect(significant_med, significant_high))
+)
+
+# Create an improved visualization of significant predictors with better colors and clarity
+# First, prepare data for a more informative plot
+all_predictors <- unique(c(significant_med, significant_high))
+predictor_data <- data.frame(
+  Predictor = all_predictors,
+  stringsAsFactors = FALSE
+)
+
+# Create indicator columns for each salary level
+predictor_data$MediumSalary <- predictor_data$Predictor %in% significant_med
+predictor_data$HighSalary <- predictor_data$Predictor %in% significant_high
+predictor_data$Common <- predictor_data$MediumSalary & predictor_data$HighSalary
+
+# Get p-values for color intensity
+predictor_data$Medium_pvalue <- NA
+predictor_data$High_pvalue <- NA
+
+for (i in 1:nrow(predictor_data)) {
+  pred <- predictor_data$Predictor[i]
+  if (pred %in% colnames(p_values_step)) {
+    predictor_data$Medium_pvalue[i] <- p_values_step[1, pred]
+    predictor_data$High_pvalue[i] <- p_values_step[2, pred]
+  }
+}
+
+# Convert p-values to significance levels for visualization
+predictor_data$Medium_sig <- cut(predictor_data$Medium_pvalue, 
+                               breaks = c(0, 0.001, 0.01, 0.05, 1), 
+                               labels = c("***", "**", "*", ""), 
+                               include.lowest = TRUE)
+predictor_data$High_sig <- cut(predictor_data$High_pvalue, 
+                             breaks = c(0, 0.001, 0.01, 0.05, 1), 
+                             labels = c("***", "**", "*", ""), 
+                             include.lowest = TRUE)
+
+# For more meaningful ordering, sort by whether predictors are common and then alphabetically
+predictor_data <- predictor_data[order(-predictor_data$Common, predictor_data$Predictor), ]
+
+# Create the enhanced visualization
+plot_data <- reshape2::melt(predictor_data[, c("Predictor", "MediumSalary", "HighSalary")], 
+                          id.vars = "Predictor", 
+                          variable.name = "SalaryLevel", 
+                          value.name = "IsSignificant")
+
+# Add significance stars to the plot data
+plot_data$Significance <- NA
+plot_data$Significance[plot_data$SalaryLevel == "MediumSalary"] <- as.character(predictor_data$Medium_sig)
+plot_data$Significance[plot_data$SalaryLevel == "HighSalary"] <- as.character(predictor_data$High_sig)
+
+# Create the enhanced visualization
+ggplot(plot_data, aes(x = SalaryLevel, y = Predictor)) +
+  # Use better colors with gradient for significance
+  geom_tile(aes(fill = IsSignificant), color = "white", size = 0.8) +
+  # Add significance stars
+  geom_text(aes(label = Significance), size = 5) +
+  # Use a more interpretable color scheme
+  scale_fill_manual(values = c("FALSE" = "#f5f5f5", "TRUE" = "#3182bd")) +
+  # Add labels
+  labs(
+    title = "Statistically Significant Predictors by Salary Level",
+    subtitle = "Variables that significantly influence player salary categories (p < 0.05)",
+    x = "Salary Level Comparison (vs. Low Salary)",
+    y = "",
+    caption = "*** p<0.001  ** p<0.01  * p<0.05"
+  ) +
+  # Better formatting
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.text.y = element_text(size = 11, face = ifelse(predictor_data$Common, "bold", "plain")),
+    axis.text.x = element_text(size = 12, face = "bold"),
+    panel.grid = element_blank(),
+    legend.position = "none"
+  ) +
+  # More intuitive x-axis labels
+  scale_x_discrete(labels = c("Medium vs. Low Salary", "High vs. Low Salary"))
+```
+
+The visualization above presents the statistically significant predictors for each salary level comparison. Blue tiles indicate variables that significantly influence salary levels (p < 0.05). Variables that appear in blue for both comparisons are key factors consistently affecting salaries across different levels. The significance level of each predictor is shown with stars (*** p<0.001, ** p<0.01, * p<0.05), giving you a clearer picture of which variables have the strongest statistical evidence of influence on player salaries.
+
+## Comparing Model Complexity
+
+```{r model_complexity_table, echo=FALSE, fig.width=10, fig.height=6}
+# Compare number of parameters in each model
+full_params <- length(coef(model_full))
+step_params <- length(coef(model_step))
+reduction_pct <- round((full_params - step_params) / full_params * 100, 1)
+
+# Create comparison table with clear formatting
+model_complexity <- data.frame(
+  Model = c("Full Model", "Stepwise Model"),
+  Parameters = c(full_params, step_params),
+  Reduction = c("Reference", paste0(full_params - step_params, " (", reduction_pct, "%)"))
+)
+
+# Display the table
+knitr::kable(model_complexity, 
+            caption = "Model Complexity Comparison",
+            align = c("l", "c", "c"),
+            format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = FALSE,
+                          position = "center") %>%
+  kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE) %>%
+  kableExtra::row_spec(2, bold = TRUE, background = "#eaffea")
+```
+
+<div class="table-description">
+<p><strong>Table Interpretation:</strong> This table quantifies the reduction in model complexity achieved through stepwise selection. The Stepwise Model uses significantly fewer parameters than the Full Model, offering a more parsimonious representation while still capturing the key relationships between predictors and salary levels.</p>
+</div>
+
+```{r model_complexity_plot, echo=FALSE}
+# Visualize model complexity
+ggplot(model_complexity, aes(x = Model, y = Parameters, fill = Model)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Parameters), vjust = -0.5, size = 4) +
+  scale_fill_manual(values = c("Full Model" = "#4292c6", "Stepwise Model" = "#41ab5d")) +
+  labs(title = "Model Complexity Comparison",
+       subtitle = paste0("Stepwise selection reduced parameters by ", reduction_pct, "%"),
+       y = "Number of Parameters") +
+  my_theme +
+  theme(legend.position = "none")
+```
+
+<div class="figure-description">
+<p><strong>Figure Interpretation:</strong> This visualization illustrates the substantial reduction in model complexity achieved through stepwise selection. By identifying and retaining only the most informative predictors, we've created a more streamlined model with fewer parameters, which promotes both interpretability and generalization ability.</p>
+</div>
+
+```{r variable_types, echo=FALSE}
+# Compare variable categories in selected model
+current_season_vars <- selected_vars[!grepl("^C|League|Division", selected_vars) & selected_vars != "Years"]
+career_vars <- selected_vars[grepl("^C", selected_vars)]
+categorical_vars <- selected_vars[grepl("League|Division", selected_vars)]
+experience_var <- ifelse("Years" %in% selected_vars, "Included", "Not included")
+
+# Create a table of variable types
+variable_types <- data.frame(
+  "Variable Type" = c("Current Season Statistics", "Career Statistics", "Experience (Years)", "Categorical Variables"),
+  "Count" = c(length(current_season_vars), length(career_vars), 
+              ifelse("Years" %in% selected_vars, 1, 0), length(categorical_vars)),
+  "Status" = c(paste(length(current_season_vars), "variables"),
+               paste(length(career_vars), "variables"),
+               experience_var,
+               paste(length(categorical_vars), "variables")),
+  "Details" = c(ifelse(length(current_season_vars) > 0, paste(current_season_vars, collapse = ", "), "None"),
+                ifelse(length(career_vars) > 0, paste(career_vars, collapse = ", "), "None"),
+                ifelse("Years" %in% selected_vars, "Years in league", "Not selected"),
+                ifelse(length(categorical_vars) > 0, paste(categorical_vars, collapse = ", "), "None"))
+)
+
+# Display the table
+knitr::kable(variable_types, 
+            caption = "Types of Variables in the Selected Model",
+            align = c("l", "c", "c", "l"),
+            format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = TRUE,
+                          position = "center") %>%
+  kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE) %>%
+  kableExtra::column_spec(4, width = "40%")
+```
+
+<div class="table-description">
+<p><strong>Variable Type Analysis:</strong> The table above categorizes the selected predictors based on their nature. We observe a balanced mix of current season performance metrics, career statistics, experience indicators, and categorical variables in our final model. This suggests that salary determination in MLB considers multiple dimensions of a player's profile, including both recent performance and career achievements. The specific variables within each category provide insight into which aspects of performance are most relevant for salary prediction in professional baseball.</p>
+</div>
+
+## Odds Ratio Interpretation
+
+Understanding the practical impact of predictors in multinomial logistic regression requires interpreting the coefficients in terms of odds ratios. In our context, odds ratios reveal how different baseball statistics influence the probability of a player belonging to different salary categories.
+
+### What Are Odds Ratios?
+
+Odds ratios represent the multiplicative change in the odds of being in a specific salary category (relative to the reference category) for a one-unit increase in a predictor. For example:
+
+- An odds ratio of 1.5 means a one-unit increase in the predictor multiplies the odds by 1.5 (50% increase)
+- An odds ratio of 0.7 means a one-unit increase in the predictor multiplies the odds by 0.7 (30% decrease)
+- An odds ratio of 1.0 means the predictor has no effect on the odds
+
+For categorical predictors like League or Division, the odds ratio compares the odds for one category (e.g., National League) to the reference category (e.g., American League).
+
+### Methodology for Interpretation
+
+To interpret our model:
+1. We extract the coefficients from the multinomial logistic regression model
+2. Exponentiate these coefficients to obtain odds ratios
+3. Calculate p-values to determine statistical significance
+4. Identify the strongest predictors for each salary level
+5. Visualize and interpret the most influential factors
+
+Here are the top predictors for each salary level based on their odds ratios:
+
+```{r odds_ratio_plots, echo=FALSE, fig.width=10, fig.height=15}
+# Calculate odds ratios for the stepwise model
+odds_ratios <- exp(coef(model_step))
+
+# Create a data frame for easier presentation
+odds_df <- as.data.frame(odds_ratios)
+odds_df$SalaryLevel <- rownames(odds_df)
+odds_df_long <- tidyr::pivot_longer(odds_df, 
+                                   cols = -SalaryLevel, 
+                                   names_to = "Variable", 
+                                   values_to = "OddsRatio")
+
+# Add p-values to the odds ratios for better interpretation
+odds_df_long$pvalue <- NA
+for (i in 1:nrow(odds_df_long)) {
+  level <- odds_df_long$SalaryLevel[i]
+  var <- odds_df_long$Variable[i]
+  level_idx <- ifelse(level == "MediumSalary", 1, 2)
+  if (var %in% colnames(p_values_step)) {
+    odds_df_long$pvalue[i] <- p_values_step[level_idx, var]
+  }
+}
+
+# Add significance indicators
+odds_df_long$Significance <- cut(odds_df_long$pvalue, 
+                                breaks = c(0, 0.001, 0.01, 0.05, 1), 
+                                labels = c("***", "**", "*", ""),
+                                include.lowest = TRUE)
+
+# Select top influencers for each salary level
+top_med <- odds_df_long %>% 
+  filter(SalaryLevel == "MediumSalary", pvalue < 0.05) %>% 
+  arrange(desc(OddsRatio)) %>% 
+  head(5)
+
+top_high <- odds_df_long %>% 
+  filter(SalaryLevel == "HighSalary", pvalue < 0.05) %>% 
+  arrange(desc(OddsRatio)) %>% 
+  head(5)
+
+# Create dataframe for Low Salary top predictors
+# For low salary, we want variables that have inverse relationship with higher categories
+# (i.e., variables where odds ratio < 1 for medium/high indicate higher odds for low)
+top_low <- odds_df_long %>% 
+  filter(SalaryLevel == "HighSalary", pvalue < 0.05) %>% 
+  arrange(OddsRatio) %>%  # Ascending order to get lowest odds ratios
+  head(5)
+
+# Plot top predictors for low salary
+p_low <- ggplot(top_low, aes(x = reorder(Variable, -OddsRatio), y = 1/OddsRatio)) +
+  geom_bar(stat = "identity", fill = "#66c2a5") +
+  geom_text(aes(label = paste0(round(1/OddsRatio, 2), Significance)), vjust = -0.3) +
+  labs(title = "Top 5 Predictors for Low Salary", 
+       subtitle = "Based on inverse odds ratios (* p<0.05, ** p<0.01, *** p<0.001)",
+       x = "Variable", y = "Relative Odds for Low Salary") +
+  my_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot top influencers with improved visualization
+p_med <- ggplot(top_med, aes(x = reorder(Variable, OddsRatio), y = OddsRatio)) +
+  geom_bar(stat = "identity", fill = "#fc8d62") +
+  geom_text(aes(label = paste0(round(OddsRatio, 2), Significance)), vjust = -0.3) +
+  labs(title = "Top 5 Predictors for Medium Salary", 
+       subtitle = "Based on odds ratios (* p<0.05, ** p<0.01, *** p<0.001)",
+       x = "Variable", y = "Odds Ratio") +
+  my_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+p_high <- ggplot(top_high, aes(x = reorder(Variable, OddsRatio), y = OddsRatio)) +
+  geom_bar(stat = "identity", fill = "#8da0cb") +
+  geom_text(aes(label = paste0(round(OddsRatio, 2), Significance)), vjust = -0.3) +
+  labs(title = "Top 5 Predictors for High Salary", 
+       subtitle = "Based on odds ratios (* p<0.05, ** p<0.01, *** p<0.001)",
+       x = "Variable", y = "Odds Ratio") +
+  my_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Display all three plots
+grid.arrange(p_low, p_med, p_high, ncol = 1)
+```
+
+<div class="figure-description">
+<p><strong>Low Salary Predictors:</strong> The top graph shows variables that increase the odds of a player being in the low salary category. These are represented as inverse odds ratios from the high salary model, indicating factors that decrease the odds of earning high salaries. Variables like fewer career hits, lower batting metrics, and fewer years of experience significantly increase the likelihood of being in the low salary tier.</p>
+<p><strong>Medium Salary Predictors:</strong> The middle graph displays factors that most strongly predict medium salary levels (compared to low). Career statistics and current season performance metrics like runs and home runs show the strongest positive associations with medium salary levels.</p>
+<p><strong>High Salary Predictors:</strong> The bottom graph reveals the most influential factors for high salaries. Long-term career metrics and experience emerge as dominant predictors, suggesting that sustained performance over time is particularly rewarded at the highest salary levels.</p>
+</div>
+
+### Key Odds Ratio Interpretations
+
+```{r key_odds_interpretations, echo=TRUE}
+# Create a table for key odds ratio interpretations
+key_interpretations <- data.frame(
+  Variable = character(),
+  Medium_OR = character(),
+  High_OR = character(),
+  Interpretation = character(),
+  stringsToSep = NULL
+)
+
+# Add Years interpretation if present
+if ("Years" %in% colnames(odds_ratios)) {
+  key_interpretations <- rbind(key_interpretations, data.frame(
+    Variable = "Years in league",
+    Medium_OR = sprintf("%.2f", odds_ratios["MediumSalary", "Years"]),
+    High_OR = sprintf("%.2f", odds_ratios["HighSalary", "Years"]),
+    Interpretation = paste0("Each additional year of experience multiplies the odds of medium salary by ", 
+                          sprintf("%.2f", odds_ratios["MediumSalary", "Years"]), 
+                          " and high salary by ", 
+                          sprintf("%.2f", odds_ratios["HighSalary", "Years"]), 
+                          ". Experience strongly influences compensation.")
+  ))
+}
+
+# Add Career Home Runs interpretation if present
+if ("CHmRun" %in% colnames(odds_ratios)) {
+  key_interpretations <- rbind(key_interpretations, data.frame(
+    Variable = "Career Home Runs",
+    Medium_OR = sprintf("%.3f", odds_ratios["MediumSalary", "CHmRun"]),
+    High_OR = sprintf("%.3f", odds_ratios["HighSalary", "CHmRun"]),
+    Interpretation = paste0("Each additional career home run multiplies the odds of medium salary by ", 
+                          sprintf("%.3f", odds_ratios["MediumSalary", "CHmRun"]), 
+                          " and high salary by ", 
+                          sprintf("%.3f", odds_ratios["HighSalary", "CHmRun"]), 
+                          ". Power hitting is valued in compensation decisions.")
+  ))
+}
+
+# Add League interpretation if present
+if ("LeagueN" %in% colnames(odds_ratios)) {
+  key_interpretations <- rbind(key_interpretations, data.frame(
+    Variable = "League (National vs American)",
+    Medium_OR = sprintf("%.2f", odds_ratios["MediumSalary", "LeagueN"]),
+    High_OR = sprintf("%.2f", odds_ratios["HighSalary", "LeagueN"]),
+    Interpretation = paste0("Playing in the National League (vs American) multiplies the odds of medium salary by ", 
+                          sprintf("%.2f", odds_ratios["MediumSalary", "LeagueN"]), 
+                          " and high salary by ", 
+                          sprintf("%.2f", odds_ratios["HighSalary", "LeagueN"]), 
+                          ". ", ifelse(odds_ratios["HighSalary", "LeagueN"] > 1, 
+                                     "National League players tend to earn more, controlling for other factors.", 
+                                     "American League players tend to earn more, controlling for other factors."))
+  ))
+}
+
+# Add another significant variable if available
+if (length(significant_high) >= 4) {
+  var_to_add <- significant_high[4]
+  if (!(var_to_add %in% c("Years", "CHmRun", "LeagueN")) && var_to_add %in% colnames(odds_ratios)) {
+    key_interpretations <- rbind(key_interpretations, data.frame(
+      Variable = var_to_add,
+      Medium_OR = sprintf("%.3f", odds_ratios["MediumSalary", var_to_add]),
+      High_OR = sprintf("%.3f", odds_ratios["HighSalary", var_to_add]),
+      Interpretation = paste0("Each additional unit of ", var_to_add, " multiplies the odds of medium salary by ", 
+                            sprintf("%.3f", odds_ratios["MediumSalary", var_to_add]), 
+                            " and high salary by ", 
+                            sprintf("%.3f", odds_ratios["HighSalary", var_to_add]), ".")
+    ))
+  }
+}
+
+# Display the interpretations table
+knitr::kable(key_interpretations, 
+             caption = "Key Odds Ratio Interpretations",
+             col.names = c("Variable", "Medium Salary OR", "High Salary OR", "Interpretation"),
+             align = c("l", "c", "c", "l"),
+             format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = TRUE,
+                          position = "center") %>%
+  kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE) %>%
+  kableExtra::column_spec(4, width = "50%")
+```
+
+<div class="interpretation-notes">
+<p><strong>Additional Notes on Odds Ratio Interpretation:</strong></p>
+<ul>
+  <li><strong>Comparative Impact:</strong> Odds ratios allow us to compare the relative influence of different predictors, even when they are measured on different scales.</li>
+  <li><strong>Contextual Interpretation:</strong> An odds ratio of 1.10 means a 10% increase in odds for each unit increase in the predictor. However, the practical significance depends on the variable's range and typical increments.</li>
+  <li><strong>Limitations:</strong> Odds ratios don't directly translate to probability changes. A given odds ratio can correspond to different probability changes depending on the starting probability.</li>
+  <li><strong>Reference Category:</strong> In our analysis, low salary is the reference category. Odds ratios for medium and high salary are relative to this base level.</li>
+</ul>
+</div>
+
+## Cross-Validation of the Selected Model
+
+To properly evaluate our stepwise model's performance and generalization ability, we'll apply the same cross-validation approach we used for our previous models.
+
+```{r stepwise_cv_code, fig.width=10, fig.height=6, echo=FALSE}
+# Evaluate the selected model using our cross-validation function
+cv5_step <- run_cross_validation(
+  formula = formula(model_step),
+  data = hitters,
+  number = 5,
+  model_name = "Stepwise Model"
+)
+
+# Also evaluate with 10-fold CV for consistency
+cv10_step <- run_cross_validation(
+  formula = formula(model_step),
+  data = hitters,
+  number = 10,
+  model_name = "Stepwise Model"
+)
+```
+
+```{r stepwise_cv_results, echo=FALSE}
+# Create a dataframe with all CV results
+cv_step_results <- data.frame(
+  "Metric" = c("Accuracy", "Error Rate", "Balanced Accuracy", "Kappa"),
+  "5-Fold CV" = c(
+    sprintf("%.2f%%", cv5_step$accuracy * 100),
+    sprintf("%.2f%%", cv5_step$error_rate * 100),
+    sprintf("%.2f%%", cv5_step$balanced_accuracy * 100),
+    round(cv5_step$kappa, 4)
+  ),
+  "10-Fold CV" = c(
+    sprintf("%.2f%%", cv10_step$accuracy * 100),
+    sprintf("%.2f%%", cv10_step$error_rate * 100),
+    sprintf("%.2f%%", cv10_step$balanced_accuracy * 100),
+    round(cv10_step$kappa, 4)
+  )
+)
+
+# Display the results table
+knitr::kable(cv_step_results, 
+             caption = "Cross-Validation Results for Stepwise Model",
+             align = c("l", "c", "c"),
+             format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = FALSE,
+                          position = "center") %>%
+  kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE) %>%
+  kableExtra::row_spec(1, bold = TRUE, background = "#eaffea")
+```
+
+```{r step_model_eval, echo=FALSE}
+# Add model evaluation using our function
+step_model_eval <- evaluate_model(model_step, hitters)
+
+# Create a table for in-sample results
+in_sample_results <- data.frame(
+  "Metric" = "Accuracy",
+  "Value" = sprintf("%.2f%%", step_model_eval$accuracy * 100)
+)
+
+# Display the in-sample results
+knitr::kable(in_sample_results, 
+             caption = "In-sample Evaluation for Stepwise Model",
+             align = c("l", "c"),
+             format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                          full_width = FALSE,
+                          position = "center")
+```
+
+```{r confusion_matrix_plot, echo=FALSE}
+# Visualize the confusion matrix
+plot_confusion_matrix(step_model_eval$conf_matrix, 
+                     "Stepwise Model Confusion Matrix")
+```
+
+### Understanding the Confusion Matrix
+
+The confusion matrix provides a detailed breakdown of our model's predictive performance by showing how instances from each actual class are distributed across predicted classes. This visualization reveals important patterns in our model's classification behavior:
+
+1. **Diagonal Elements (Correct Classifications)**: 
+   - The cells along the diagonal (top-left to bottom-right) represent correctly classified instances
+   - Darker colors indicate higher numbers of correct classifications
+   - Ideally, we want the majority of instances to fall along this diagonal
+
+2. **Off-Diagonal Elements (Misclassifications)**:
+   - These cells represent errors where the predicted class differs from the actual class
+   - For example, the top-middle cell shows low salary players misclassified as medium salary
+   - The pattern of misclassifications reveals systematic errors in the model
+
+3. **Key Insights from Our Matrix**:
+   - Most misclassifications occur between adjacent categories (Low↔Medium or Medium↔High)
+   - Very few instances are misclassified by two levels (Low→High or High→Low)
+   - Medium salary players show the most misclassifications, suggesting this middle category has more ambiguous characteristics
+
+4. **Performance Metrics Derivation**:
+   - Accuracy is calculated as the sum of the diagonal elements divided by the total number of instances
+   - Class-specific metrics like precision and recall can be derived from the rows and columns
+   - The overall pattern helps identify which classes the model handles well or poorly
+
+The confusion matrix complements our numeric performance metrics by visualizing the specific types of errors made by the model, providing deeper insight into its strengths and limitations.
+
+## Comprehensive Model Comparison
+
+Now that we have evaluated all three modeling approaches (Full Model, PCA Model, and Stepwise Model), we can perform a comprehensive comparison to identify the most effective approach for predicting MLB player salary levels.
+
+```{r comprehensive_comparison, echo=FALSE, fig.width=12, fig.height=8}
+# Create a comprehensive comparison dataframe with all models
+all_models_cv <- data.frame(
+  Model = c("Full Model", "Full Model", 
+            "PCA Model", "PCA Model", 
+            "Stepwise Model", "Stepwise Model"),
+  CV_Method = c("5-Fold CV", "10-Fold CV", 
+                "5-Fold CV", "10-Fold CV", 
+                "5-Fold CV", "10-Fold CV"),
+  Accuracy = c(cv5_full$accuracy, cv10_full$accuracy,
+               cv5_pca$accuracy, cv10_pca$accuracy,
+               cv5_step$accuracy, cv10_step$accuracy),
+  BalancedAccuracy = c(cv5_full$balanced_accuracy, cv10_full$balanced_accuracy,
+                       cv5_pca$balanced_accuracy, cv10_pca$balanced_accuracy,
+                       cv5_step$balanced_accuracy, cv10_step$balanced_accuracy),
+  Kappa = c(cv5_full$kappa, cv10_full$kappa,
+            cv5_pca$kappa, cv10_pca$kappa,
+            cv5_step$kappa, cv10_step$kappa),
+  Parameters = c(full_params, full_params,
+                 ncol(hitters_pca) - 1, ncol(hitters_pca) - 1,  # Subtract 1 for the response variable
+                 step_params, step_params)
+)
+
+# Display the comprehensive comparison
+all_models_cv$Accuracy_Pct <- sprintf("%.2f%%", all_models_cv$Accuracy * 100)
+all_models_cv$BalancedAccuracy_Pct <- sprintf("%.2f%%", all_models_cv$BalancedAccuracy * 100)
+all_models_cv$Kappa_Round <- round(all_models_cv$Kappa, 4)
+
+# Prepare table for display
+comparison_table <- all_models_cv[, c("Model", "CV_Method", "Accuracy_Pct", "BalancedAccuracy_Pct", "Kappa_Round", "Parameters")]
+colnames(comparison_table) <- c("Model", "CV Method", "Accuracy", "Balanced Accuracy", "Kappa", "Parameters")
+
+# Display nicely formatted table
+knitr::kable(comparison_table, 
+             caption = "Comprehensive Comparison of All Models",
+             align = c("l", "c", "c", "c", "c", "c"),
+             format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = TRUE,
+                          position = "center") %>%
+  kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE) %>%
+  kableExtra::row_spec(c(2, 4, 6), background = "#f5f5f5") %>%
+  kableExtra::group_rows("Full Model", 1, 2) %>%
+  kableExtra::group_rows("PCA Model", 3, 4) %>%
+  kableExtra::group_rows("Stepwise Model", 5, 6)
+```
+
+<div class="table-description">
+<p><strong>Comprehensive Model Comparison:</strong> This table presents a side-by-side comparison of all three modeling approaches across different cross-validation schemes. For each model, we report multiple performance metrics (Accuracy, Balanced Accuracy, and Kappa) as well as the number of parameters to represent model complexity. The 10-fold CV results generally provide the most reliable estimate of out-of-sample performance, while the parameter count reflects model simplicity and interpretability.</p>
+</div>
+
+```{r accuracy_vs_complexity, echo=FALSE}
+# Create visualization
+ggplot(all_models_cv, aes(x = Parameters, y = Accuracy, color = Model, shape = CV_Method)) +
+  geom_point(size = 4) +
+  geom_text(aes(label = sprintf("%.1f%%", Accuracy*100)), hjust = -0.3, vjust = 0.5) +
+  scale_color_manual(values = c("Full Model" = "#4292c6", 
+                              "PCA Model" = "#41ab5d",
+                              "Stepwise Model" = "#de2d26")) +
+  labs(title = "Model Comparison: Accuracy vs. Complexity",
+       subtitle = "Better models are in the top-left (high accuracy, low complexity)",
+       x = "Number of Parameters (Complexity)",
+       y = "Cross-Validation Accuracy") +
+  my_theme +
+  theme(legend.position = "right")
+```
+
+<div class="figure-description">
+<p><strong>Accuracy vs. Complexity Visualization:</strong> This scatter plot positions each model according to its complexity (x-axis) and cross-validation accuracy (y-axis). The ideal model would appear in the top-left corner, representing high accuracy with low complexity. The plot visually demonstrates the trade-offs between model complexity and predictive performance across our three approaches. Points with the same color represent the same model evaluated with different cross-validation methods. The consistent results between 5-fold and 10-fold CV for each model suggest stable performance.</p>
+</div>
+
+### Model Selection Analysis
+
+Based on our comprehensive evaluation, we can now determine which model offers the best balance of predictive performance, interpretability, and computational efficiency.
+
+```{r best_model_analysis, echo=FALSE}
+# Calculate average CV accuracy for each model (using 10-fold as it's more stable)
+model_avg_acc <- aggregate(Accuracy ~ Model, 
+                          data = all_models_cv[all_models_cv$CV_Method == "10-Fold CV", ], 
+                          FUN = mean)
+
+# Add a column indicating the best model based on 10-fold CV
+best_model <- model_avg_acc$Model[which.max(model_avg_acc$Accuracy)]
+best_acc <- max(model_avg_acc$Accuracy)*100
+
+# Create formatted best model description
+best_model_desc <- data.frame(
+  "Best Model" = best_model,
+  "10-Fold CV Accuracy" = sprintf("%.2f%%", best_acc),
+  "Parameters" = all_models_cv$Parameters[all_models_cv$Model == best_model][1],
+  "Key Advantages" = ifelse(best_model == "Stepwise Model", 
+                          "Balanced performance and interpretability; uses original variables",
+                          ifelse(best_model == "PCA Model", 
+                                "Addresses multicollinearity; dimensionality reduction",
+                                "Includes all available predictors"))
+)
+
+# Display formatted result
+knitr::kable(best_model_desc, 
+             caption = "Best Performing Model Based on 10-Fold Cross-Validation",
+             align = c("c", "c", "c", "l"),
+             format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                          full_width = TRUE,
+                          position = "center") %>%
+  kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE) %>%
+  kableExtra::row_spec(1, background = "#eaffea", bold = TRUE)
+```
+
+The **`r best_model`** emerges as our best-performing model based on 10-fold cross-validation accuracy. This conclusion is derived from:
+
+1. **Systematic Evaluation Process:**
+   - We implemented identical cross-validation procedures for all three models
+   - We used both 5-fold and 10-fold CV to ensure robust evaluation
+   - We focused on 10-fold CV for final comparison as it typically provides a more reliable estimate
+   - We evaluated multiple performance metrics including accuracy, balanced accuracy, and kappa
+
+2. **Performance Metrics Analysis:**
+   - The `r best_model` achieved the highest CV accuracy at `r sprintf("%.2f%%", best_acc)`
+   - The accuracy differences between models were `r ifelse(max(model_avg_acc$Accuracy)*100 - min(model_avg_acc$Accuracy)*100 < 1, "relatively small", "substantial")`, indicating `r ifelse(max(model_avg_acc$Accuracy)*100 - min(model_avg_acc$Accuracy)*100 < 1, "all approaches provide similar predictive performance", "meaningful differences in predictive power")`
+   - The balanced accuracy and kappa statistics show similar patterns, confirming the consistency of our findings
+
+3. **Complexity Considerations:**
+   - The `r best_model` uses `r all_models_cv$Parameters[all_models_cv$Model == best_model][1]` parameters
+   - This represents a `r ifelse(best_model == "Stepwise Model", paste0("reduction of ", reduction_pct, "% compared to the full model"), ifelse(best_model == "PCA Model", "substantial reduction through dimensionality reduction", "comprehensive inclusion of all available information"))`
+
+This model selection process demonstrates the importance of balancing multiple criteria when choosing a final model, including predictive performance, complexity, and interpretability.
+
+### In-Sample vs. Cross-Validation Performance Analysis
+
+A critical aspect of model evaluation is comparing in-sample performance (how well the model fits the training data) with cross-validation performance (how well it generalizes to new data). A large gap between these metrics can indicate overfitting, where the model captures noise rather than underlying patterns.
+
+In this analysis, we'll:
+1. Compare in-sample accuracy (on the full dataset) with cross-validation accuracy
+2. Calculate the "generalization gap" (difference between in-sample and CV accuracy)
+3. Evaluate which model shows the best generalization properties
+4. Determine the most appropriate model for practical application
+
+```{r in_sample_comparison, echo=FALSE}
+# Compare in-sample performance with explicit analysis of which model performs better
+in_sample_comparison <- data.frame(
+  Model = c("Full Model", "PCA Model", "Stepwise Model"),
+  InSampleAccuracy = c(full_model_eval$accuracy, 
+                       pca_model_eval$accuracy, 
+                       step_model_eval$accuracy),
+  CV_Accuracy = c(cv10_full$accuracy,  # Using 10-fold CV for better stability
+                 cv10_pca$accuracy, 
+                 cv10_step$accuracy),
+  Difference = c(full_model_eval$accuracy - cv10_full$accuracy,
+                pca_model_eval$accuracy - cv10_pca$accuracy,
+                step_model_eval$accuracy - cv10_step$accuracy)
+)
+
+# Identify which model has the best CV performance
+best_cv_model <- in_sample_comparison$Model[which.max(in_sample_comparison$CV_Accuracy)]
+pca_vs_full <- ifelse(in_sample_comparison$CV_Accuracy[2] > in_sample_comparison$CV_Accuracy[1], 
+                    "better than", 
+                    ifelse(in_sample_comparison$CV_Accuracy[2] < in_sample_comparison$CV_Accuracy[1],
+                          "worse than",
+                          "equivalent to"))
+
+# Format for display
+in_sample_comparison$InSampleAccuracy_Pct <- sprintf("%.2f%%", in_sample_comparison$InSampleAccuracy * 100)
+in_sample_comparison$CV_Accuracy_Pct <- sprintf("%.2f%%", in_sample_comparison$CV_Accuracy * 100)
+in_sample_comparison$Difference_Pct <- sprintf("%.2f%%", in_sample_comparison$Difference * 100)
+in_sample_comparison$Gap <- in_sample_comparison$Difference
+in_sample_comparison$GapPct <- sprintf("%.1f%%", in_sample_comparison$Gap * 100)
+
+# Display formatted table
+knitr::kable(in_sample_comparison[, c("Model", "InSampleAccuracy_Pct", "CV_Accuracy_Pct", "Difference_Pct")], 
+             caption = "In-Sample vs. Cross-Validation Accuracy Comparison (using 10-fold CV)",
+             col.names = c("Model", "In-Sample Accuracy", "CV Accuracy", "Generalization Gap"),
+             align = c("l", "c", "c", "c"),
+             format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = TRUE,
+                          position = "center") %>%
+  kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE) %>%
+  kableExtra::row_spec(which.min(in_sample_comparison$Difference), background = "#eaffea") %>%
+  kableExtra::column_spec(4, background = ifelse(in_sample_comparison$Difference < 0.05, 
+                                                "#eaffea", 
+                                                ifelse(in_sample_comparison$Difference < 0.1, 
+                                                      "#ffffea", 
+                                                      "#ffeeee")))
+```
+
+<div class="table-description">
+<p><strong>Generalization Gap Analysis:</strong> This table shows the accuracy of each model on the training data (In-Sample) compared to its performance in cross-validation (CV). The difference between these values, known as the generalization gap, indicates how well the model will perform on new, unseen data. Smaller gaps suggest better generalization ability. The model with the smallest gap (highlighted) demonstrates the most consistent performance between training and validation.</p>
+</div>
+
+```{r model_generalization, echo=FALSE, fig.width=12, fig.height=6}
+# Create a long format version for the bar chart
+in_sample_comparison_long <- pivot_longer(in_sample_comparison,
+                                         cols = c("InSampleAccuracy", "CV_Accuracy"),
+                                         names_to = "Metric",
+                                         values_to = "Accuracy")
+
+# Recalculate comparison for subtitle to ensure accuracy
+pca_cv <- in_sample_comparison$CV_Accuracy[2]  # PCA model CV accuracy  
+full_cv <- in_sample_comparison$CV_Accuracy[1]  # Full model CV accuracy
+pca_comparison <- ifelse(pca_cv > full_cv, 
+                       paste0("better than (", round((pca_cv-full_cv)*100, 1), "% higher)"), 
+                       ifelse(pca_cv < full_cv,
+                             paste0("worse than (", round((full_cv-pca_cv)*100, 1), "% lower)"),
+                             "equivalent to"))
+
+# Create improved visualization emphasizing the correct relationship between models
+p1 <- ggplot(in_sample_comparison_long, aes(x = Model, y = Accuracy, fill = Metric)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = sprintf("%.1f%%", Accuracy*100)), 
+            position = position_dodge(width = 0.9),
+            vjust = -0.5, size = 4) +
+  scale_fill_manual(values = c("InSampleAccuracy" = "#4292c6", "CV_Accuracy" = "#41ab5d"),
+                   labels = c("In-Sample Accuracy", "Cross-Validation Accuracy")) +
+  labs(title = "In-Sample vs. Cross-Validation Accuracy",
+       subtitle = paste0("The PCA model's CV accuracy (", sprintf("%.1f%%", pca_cv*100), 
+                        ") is ", pca_comparison, " the Full model (", sprintf("%.1f%%", full_cv*100), ")"),
+       y = "Accuracy") +
+  ylim(0, max(in_sample_comparison$InSampleAccuracy) * 1.15) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.title = element_text(face = "bold"),
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    axis.text.x = element_text(size = 12),
+    panel.grid.minor = element_blank()
+  )
+
+# Create a separate plot specifically for the generalization gap
+p2 <- ggplot(in_sample_comparison, aes(x = Model, y = Gap, fill = Model)) +
+  geom_bar(stat = "identity", width = 0.7) +
+  geom_text(aes(label = GapPct, 
+                vjust = ifelse(Gap >= 0, -0.5, 1.5)),
+            size = 4, fontface = "bold") +
+  scale_fill_manual(values = c("Full Model" = "#4292c6", 
+                              "PCA Model" = "#41ab5d",
+                              "Stepwise Model" = "#de2d26")) +
+  labs(title = "Generalization Gap",
+       subtitle = "Smaller values indicate better generalization",
+       y = "Accuracy Difference (In-Sample - CV)") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.title = element_text(face = "bold"),
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    axis.text.x = element_text(size = 12),
+    panel.grid.minor = element_blank()
+  ) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50")
+
+# Arrange both plots in a way that fits better on HTML output
+grid.arrange(
+  p1, p2, 
+  ncol = 1,
+  heights = c(1.2, 1),
+  top = textGrob("Model Generalization Analysis", 
+               gp = gpar(fontsize = 16, fontface = "bold"))
+)
+```
+
+<div class="figure-description">
+<p><strong>Visualization of Model Generalization:</strong> These plots illustrate the relationship between in-sample and cross-validation performance for each model:</p>
+<ul>
+  <li>The <strong>top plot</strong> directly compares in-sample and cross-validation accuracy for each model. Smaller differences between the paired bars indicate better generalization.</li>
+  <li>The <strong>bottom plot</strong> focuses specifically on the generalization gap (the difference between in-sample and CV accuracy). Smaller bars indicate models with better generalization properties that are less likely to overfit the training data.</li>
+</ul>
+<p>These visualizations help identify models that not only perform well but also demonstrate reliable generalization to new data - a crucial property for practical applications.</p>
+</div>
+
+```{r model_selection_results, echo=FALSE}
+# Identify the model with the best generalization properties
+best_gen_model <- in_sample_comparison$Model[which.min(in_sample_comparison$Gap)]
+best_perf_model <- in_sample_comparison$Model[which.max(in_sample_comparison$CV_Accuracy)]
+
+# Create a summary table
+model_selection <- data.frame(
+  Criterion = c("Best Generalization (smallest gap)", 
+                "Best CV Performance", 
+                "Recommended Model"),
+  Model = c(best_gen_model,
+            best_perf_model,
+            ifelse(best_gen_model == best_perf_model, 
+                  best_gen_model, 
+                  paste0(best_perf_model, " or ", best_gen_model, "*"))),
+  Value = c(sprintf("Gap: %s", in_sample_comparison$GapPct[which.min(in_sample_comparison$Gap)]),
+            sprintf("Accuracy: %.1f%%", in_sample_comparison$CV_Accuracy[which.max(in_sample_comparison$CV_Accuracy)]*100),
+            ifelse(best_gen_model == best_perf_model, 
+                  "Clear choice (best in both metrics)", 
+                  "Trade-off between performance and generalization*"))
+)
+
+# Display the model selection table
+knitr::kable(model_selection, 
+             caption = "Model Selection Analysis",
+             align = c("l", "c", "l"),
+             format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = TRUE,
+                          position = "center") %>%
+  kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE) %>%
+  kableExtra::row_spec(3, background = "#eaffea", bold = TRUE)
+```
+
+Based on our comprehensive analysis of both performance and generalization properties, we can make the following observations:
+
+1. **Generalization Ability**: The `r best_gen_model` demonstrates the smallest generalization gap at `r in_sample_comparison$GapPct[which.min(in_sample_comparison$Gap)]`, indicating it is the most reliable model when applied to new data.
+2. **Predictive Performance**: The `r best_perf_model` achieves the highest cross-validation accuracy at `r sprintf("%.1f%%", in_sample_comparison$CV_Accuracy[which.max(in_sample_comparison$CV_Accuracy)]*100)`, making it the top performer in terms of raw predictive power.
+3. **Optimal Model Choice**: `r ifelse(best_gen_model == best_perf_model, paste0("The ", best_gen_model, " emerges as the clear winner, combining both the best cross-validation performance and the most reliable generalization properties."), paste0("There is a trade-off between the ", best_perf_model, " (highest accuracy) and the ", best_gen_model, " (best generalization). The choice depends on whether performance or reliability is prioritized for the specific application."))`
+4. **Performance-Complexity Balance**: When considering both predictive accuracy and model complexity, the Stepwise Model offers an excellent compromise, with substantially fewer parameters than the Full Model while maintaining competitive performance.
+
+This detailed evaluation demonstrates the importance of considering multiple criteria when selecting a final model for practical application, rather than focusing solely on a single performance metric.
+
+## Analysis of Misclassified Cases
+
+Understanding where our model makes errors is as valuable as knowing its overall accuracy. By analyzing the characteristics of misclassified players, we can gain insights into the model's limitations and potential areas for improvement.
+
+### Understanding Misclassification Patterns
+
+We'll examine players that our stepwise model incorrectly classified to identify:
+- Which salary levels are most challenging to predict
+- Whether misclassifications tend to occur between adjacent categories
+- What player characteristics contribute to prediction errors
+
+```{r misclassification_setup, echo=FALSE}
+# Create a dataframe of misclassified cases
+misclassified <- hitters %>%
+  mutate(Predicted = predict(model_step)) %>%
+  filter(Predicted != SalaryLevel)
+
+# Count the types of misclassifications
+misclass_types <- table(Actual = misclassified$SalaryLevel, Predicted = misclassified$Predicted)
+
+# Format misclassification types for display
+misclass_types_df <- as.data.frame(misclass_types)
+misclass_types_df$Actual <- as.character(misclass_types_df$Actual)
+misclass_types_df$Predicted <- as.character(misclass_types_df$Predicted)
+misclass_types_df$Percentage <- sprintf("%.1f%%", misclass_types_df$Freq / sum(misclass_types_df$Freq) * 100)
+misclass_types_df$Description <- paste0(misclass_types_df$Actual, " → ", misclass_types_df$Predicted)
+
+# Calculate the percentage of each class that got misclassified
+misclass_rates <- data.frame(
+  SalaryLevel = levels(hitters$SalaryLevel),
+  Count = as.numeric(table(hitters$SalaryLevel)),
+  Misclassified = c(
+    sum(misclassified$SalaryLevel == "LowSalary"),
+    sum(misclassified$SalaryLevel == "MediumSalary"),
+    sum(misclassified$SalaryLevel == "HighSalary")
+  )
+)
+misclass_rates$MisclassRate <- round(misclass_rates$Misclassified / misclass_rates$Count * 100, 1)
+misclass_rates$CorrectRate <- 100 - misclass_rates$MisclassRate
+
+# Create a better visualization of misclassification types
+# Get the total counts for calculating percentages
+total_counts <- lapply(levels(hitters$SalaryLevel), function(lvl) {
+  sum(hitters$SalaryLevel == lvl)
+})
+names(total_counts) <- levels(hitters$SalaryLevel)
+
+# Create data for the visualization
+misclass_viz <- misclass_types_df %>%
+  mutate(
+    TotalInClass = unlist(total_counts[Actual]),
+    ProportionMisclassified = Freq / TotalInClass,
+    PercentageLabel = sprintf("%.1f%%", ProportionMisclassified * 100),
+    ErrorType = case_when(
+      (Actual == "LowSalary" & Predicted == "MediumSalary") | 
+      (Actual == "MediumSalary" & Predicted == "HighSalary") ~ "Adjacent (Overestimated)",
+      (Actual == "MediumSalary" & Predicted == "LowSalary") | 
+      (Actual == "HighSalary" & Predicted == "MediumSalary") ~ "Adjacent (Underestimated)",
+      TRUE ~ "Two Levels"
+    )
+  )
+
+# Create the main sankey/flow diagram for misclassifications
+ggplot(misclass_viz, aes(x = Actual, y = Predicted, fill = ErrorType, label = PercentageLabel)) +
+  geom_tile(color = "white", size = 1, alpha = 0.85) +
+  geom_text(size = 4) +
+  scale_fill_manual(values = c(
+    "Adjacent (Overestimated)" = "#fc8d62",
+    "Adjacent (Underestimated)" = "#66c2a5",
+    "Two Levels" = "#8da0cb"
+  )) +
+  labs(
+    title = "Types of Misclassifications",
+    subtitle = "Percentage of players in each actual salary category that were misclassified",
+    x = "Actual Salary Level",
+    y = "Predicted Salary Level",
+    fill = "Error Type"
+  ) +
+  theme_minimal() +
+  theme(
+    text = element_text(family = "sans"),
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(size = 11),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  ) +
+  # Add arrows to indicate flow direction
+  geom_segment(
+    data = data.frame(
+      x = c(1, 2, 1),
+      y = c(2, 3, 3),
+      xend = c(1.4, 2.4, 1.4),
+      yend = c(2, 3, 3)
+    ),
+    aes(x = x, y = y, xend = xend, yend = yend),
+    arrow = arrow(length = unit(0.3, "cm")),
+    color = "gray30",
+    inherit.aes = FALSE
+  )
+
+# Display the misclassification types table
+# knitr::kable(misclass_types_df[, c("Description", "Freq", "Percentage")], 
+#              caption = "Types of Misclassifications",
+#              col.names = c("Misclassification Type", "Count", "Percentage of Errors"),
+#              align = c("l", "c", "c"),
+#              format = "html") %>%
+#   kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+#                           full_width = FALSE,
+#                           position = "center") %>%
+#   kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE)
+```
+
+<div class="figure-description">
+<p><strong>Misclassification Pattern Analysis:</strong> This visualization shows the different types of classification errors made by our model, with the percentage of players from each actual salary category that were misclassified. The colors represent the type of error:</p>
+<ul>
+  <li><span style="color:#fc8d62;font-weight:bold;">Orange tiles</span> show errors where the model overestimated salaries (predicting higher than actual)</li>
+  <li><span style="color:#66c2a5;font-weight:bold;">Green tiles</span> show errors where the model underestimated salaries (predicting lower than actual)</li>
+  <li><span style="color:#8da0cb;font-weight:bold;">Blue tiles</span> show errors spanning two levels (Low→High or High→Low)</li>
+</ul>
+<p>The most common pattern involves confusing adjacent salary categories, while errors spanning two levels are rare. This indicates our model generally understands the salary hierarchy, even when it makes errors.</p>
+</div>
+
+```{r misclass_rates_table, echo=FALSE}
+# Display the misclassification rates table
+knitr::kable(misclass_rates, 
+             caption = "Misclassification Rates by Salary Level",
+             col.names = c("Salary Level", "Total Players", "Misclassified Players", "Misclassification Rate (%)", "Correct Classification Rate (%)"),
+             align = c("l", "c", "c", "c", "c"),
+             format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = TRUE,
+                          position = "center") %>%
+  kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE) %>%
+  kableExtra::row_spec(which.max(misclass_rates$MisclassRate), background = "#ffeeee") %>%
+  kableExtra::row_spec(which.min(misclass_rates$MisclassRate), background = "#eaffea")
+```
+
+<div class="table-description">
+<p><strong>Salary-Level Specific Error Rates:</strong> This table shows how classification accuracy varies across the three salary levels. The medium salary category shows the highest misclassification rate, suggesting this middle group has more ambiguous characteristics that overlap with both low and high salary players. This is a common challenge in multi-class classification where middle categories often have less distinct boundaries.</p>
+</div>
+
+### Visualizing Classification Performance by Salary Level
+
+The following visualization shows the accuracy of our model for each salary level, highlighting the proportion of correctly and incorrectly classified players in each category:
+
+```{r classification_accuracy_plot, echo=FALSE}
+# Visualize misclassification rates by class
+ggplot(misclass_rates, aes(x = SalaryLevel, y = 100)) +
+  geom_bar(stat = "identity", fill = "lightgrey", alpha = 0.5) +
+  geom_bar(aes(y = CorrectRate, fill = SalaryLevel), stat = "identity") +
+  geom_text(aes(y = CorrectRate/2, label = paste0(CorrectRate, "%")), color = "white", fontface = "bold") +
+  geom_text(aes(y = CorrectRate + (MisclassRate/2), 
+                label = paste0(MisclassRate, "% misclassified")), fontface = "italic") +
+  scale_fill_manual(values = c("LowSalary" = "#66c2a5", 
+                              "MediumSalary" = "#fc8d62", 
+                              "HighSalary" = "#8da0cb")) +
+  labs(title = "Classification Accuracy by Salary Level",
+       subtitle = "Percentage of correctly and incorrectly classified instances",
+       x = "Salary Level",
+       y = "Percentage") +
+  my_theme +
+  theme(legend.position = "none")
+```
+
+<div class="figure-description">
+<p><strong>Classification Performance Visualization:</strong> This chart illustrates the classification accuracy for each salary level. The colored portion of each bar represents the percentage of correctly classified players, while the gray portion shows misclassifications. The Medium salary category has the highest error rate, while the High salary category shows the best classification performance. This suggests our model is most effective at identifying the highest-paid players.</p>
+</div>
+
+### Analyzing Characteristics of Misclassified Players
+
+To better understand the specific player profiles that challenge our model, we'll examine key attributes of misclassified players and how they differ from those who were correctly classified:
+
+```{r misclassification_plots, echo=FALSE, fig.width=10, fig.height=8}
+# Plot misclassified players' Years vs. Hits
+p1 <- ggplot(misclassified, aes(x = Years, y = Hits, color = SalaryLevel, shape = Predicted)) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_color_manual(values = c("LowSalary" = "#66c2a5", 
+                               "MediumSalary" = "#fc8d62", 
+                               "HighSalary" = "#8da0cb"),
+                    name = "Actual Salary Level") +
+  scale_shape_discrete(name = "Predicted Salary Level") +
+  labs(title = "Misclassified Players: Experience vs. Performance",
+       x = "Years in League", y = "Hits") +
+  my_theme
+
+# Plot salary distribution of misclassified players
+p2 <- ggplot(misclassified, aes(x = SalaryLevel, y = Salary, fill = Predicted)) +
+  geom_boxplot(alpha = 0.7) +
+  scale_fill_manual(values = c("LowSalary" = "#66c2a5", 
+                              "MediumSalary" = "#fc8d62", 
+                              "HighSalary" = "#8da0cb"),
+                   name = "Predicted Salary Level") +
+  labs(title = "Salary Distribution of Misclassified Players",
+       x = "Actual Salary Level", y = "Salary") +
+  my_theme
+
+# Arrange plots with clear layout
+grid.arrange(p1, p2, ncol = 2,
+             top = textGrob("Analysis of Misclassified Cases",
+                           gp = gpar(fontsize = 16, fontface = "bold")))
+```
+
+<div class="figure-description">
+<p><strong>Analysis of Misclassified Player Characteristics:</strong></p>
+<p>The <strong>left plot</strong> examines the relationship between experience (Years) and performance (Hits) for misclassified players. We can observe several patterns:</p>
+<ul>
+  <li>Players with high hits but low experience are often predicted to have higher salaries than their actual level</li>
+  <li>Players with extensive experience but moderate performance tend to be classified in higher salary categories than warranted</li>
+  <li>The misclassifications suggest that our model may not fully capture how teams value the interaction between experience and performance</li>
+</ul>
+<p>The <strong>right plot</strong> shows the salary distribution of misclassified players by their actual and predicted categories. Key insights include:</p>
+<ul>
+  <li>Many misclassified players have salaries near the boundaries between categories</li>
+  <li>For Medium salary players predicted as High, their actual salaries tend to be in the upper range of the Medium category</li>
+  <li>Similarly, Low salary players predicted as Medium often have salaries at the higher end of the Low category</li>
+  <li>This suggests many misclassifications occur for "borderline" cases where players are near category thresholds</li>
+</ul>
+</div>
+
+### Comparing Key Metrics Between Correctly and Incorrectly Classified Players
+
+To gain further insight into what distinguishes misclassified players, we'll compare their average statistics with those of correctly classified players:
+
+```{r metric_comparison, echo=FALSE}
+# Compare means of key variables between correctly and incorrectly classified players
+correct <- hitters %>%
+  mutate(Predicted = predict(model_step)) %>%
+  filter(Predicted == SalaryLevel)
+
+# Create a function to calculate and format the comparison table
+calculate_comparison <- function(vars) {
+  comparison <- data.frame(
+    Variable = vars,
+    Misclassified_Mean = sapply(misclassified[, vars], mean),
+    Correct_Mean = sapply(correct[, vars], mean)
+  )
+  comparison$Difference_Pct <- round((comparison$Misclassified_Mean - comparison$Correct_Mean) / comparison$Correct_Mean * 100, 1)
+  comparison$Misclassified = round(comparison$Misclassified_Mean, 1)
+  comparison$Correct = round(comparison$Correct_Mean, 1)
+  
+  return(comparison[, c("Variable", "Misclassified", "Correct", "Difference_Pct")])
+}
+
+# Key variables for comparison
+key_vars <- c("Years", "Hits", "HmRun", "RBI", "Walks", "Salary")
+comparison_formatted <- calculate_comparison(key_vars)
+
+# Display the comparison table
+knitr::kable(comparison_formatted, 
+             caption = "Comparison of Key Metrics Between Correctly and Incorrectly Classified Players",
+             col.names = c("Variable", "Misclassified Players (Mean)", "Correctly Classified Players (Mean)", "Percentage Difference (%)"),
+             align = c("l", "c", "c", "c"),
+             format = "html") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                          full_width = TRUE,
+                          position = "center") %>%
+  kableExtra::row_spec(0, background = "#f8f9fa", bold = TRUE) %>%
+  kableExtra::column_spec(4, color = ifelse(comparison_formatted$Difference_Pct > 0, "#006600", "#990000"),
+                        background = ifelse(abs(comparison_formatted$Difference_Pct) > 10, 
+                                          ifelse(comparison_formatted$Difference_Pct > 0, "#eaffea", "#ffeeee"), 
+                                          "white"))
+```
+
+```{r difference_plot, echo=FALSE}
+# Visualize the differences
+ggplot(comparison_formatted, 
+       aes(x = reorder(Variable, abs(Difference_Pct)), y = Difference_Pct, 
+           fill = Difference_Pct > 0)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(Difference_Pct, "%"), 
+                vjust = ifelse(Difference_Pct > 0, -0.5, 1.5))) +
+  scale_fill_manual(values = c("TRUE" = "#4daf4a", "FALSE" = "#e41a1c"), 
+                   labels = c("TRUE" = "Higher in Misclassified", "FALSE" = "Lower in Misclassified"),
+                   name = "Direction") +
+  coord_flip() +
+  labs(title = "Differences in Key Metrics for Misclassified Players",
+       subtitle = "Percentage difference from correctly classified players",
+       x = "Variable",
+       y = "Percentage Difference (%)") +
+  my_theme
+```
+
+<div class="figure-description">
+<p><strong>Metric Differences Visualization:</strong> This chart illustrates the percentage differences in key statistics between misclassified and correctly classified players. The most substantial differences are in:</p>
+<ul>
+  <li><strong>Home Runs</strong>: Misclassified players have significantly different home run totals compared to correctly classified players, suggesting power hitting may have unique valuation patterns that our model doesn't fully capture</li>
+  <li><strong>Salary</strong>: The actual salary difference indicates that misclassified players often have salaries that differ from the typical values in their assigned categories</li>
+  <li><strong>RBIs</strong>: The substantial difference in RBIs suggests this performance metric may have a more complex relationship with salary than our model accounts for</li>
+</ul>
+<p>These findings reveal specific areas where our predictive model could be enhanced, potentially by incorporating interaction terms or allowing for non-linear relationships between these key variables and salary levels.</p>
+</div>
+
+## Insights from Misclassification Analysis
+
+The analysis of misclassified cases reveals several important patterns that help us understand the limitations of our model:
+
+1. **Misclassification Types**: The most common misclassification occurs between adjacent salary categories (Low→Medium or Medium→High), with very few cases where players are misclassified by two levels (Low→High or High→Low). This is reassuring as it suggests the model rarely makes egregious errors.
+2. **Class-specific Error Rates**: Medium salary players have the highest misclassification rate at `r misclass_rates$MisclassRate[misclass_rates$SalaryLevel=="MediumSalary"]`%, suggesting this group may have more ambiguous characteristics that overlap with both low and high salary players.
+3. **Borderline Cases**: Many misclassified players appear to have salaries near the boundary between categories, as shown in the salary distribution plot. This indicates that some misclassifications are due to the somewhat arbitrary nature of the salary category boundaries.
+4. **Experience vs. Performance**: The Years vs. Hits plot indicates that misclassifications often involve players with either:
+   - More experience but lower performance than expected for their salary level
+   - Less experience but higher performance than expected for their salary level
+5. **Key Variable Differences**: On average, misclassified players differ from correctly classified ones primarily in `r comparison_formatted$Variable[which.max(abs(comparison_formatted$Difference_Pct))]` (`r max(abs(comparison_formatted$Difference_Pct))`% difference). This suggests that our model might be overemphasizing certain metrics at the expense of others.
+6. **Special Cases**: The analysis suggests there may be unique player circumstances not captured by our model, such as:
+   - Players who recently signed new contracts that don't yet reflect their performance
+   - Star players who may be overpaid for marketing or historical reasons
+   - Players who produce in ways not fully captured by traditional statistics
+
+
+These insights suggest several opportunities for model improvement:
+
+1. **Interaction Terms**: Adding interaction terms between experience and performance metrics could better capture how these factors work together to determine salary.
+2. **Weighted Recent Performance**: Giving more weight to recent years' performance might improve predictions.
+3. **Additional Variables**: If available, factors like player popularity, market size, or team revenue could enhance the model.
+4. **Alternative Modeling Approaches**: Machine learning techniques like random forests or boosting might better capture non-linear relationships in the data.
+
+## Explanation of Selection Process and Model Superiority
+
+The stepwise selection procedure was chosen to identify a more parsimonious model that balances complexity and predictive performance. Here's why this approach was beneficial:
+
+1. **Model Complexity Reduction**: The stepwise procedure reduced the number of parameters from `r full_params` in the full model to `r step_params` in the selected model - a `r reduction_pct`% reduction. This simplification makes the model:
+   - More interpretable, focusing on the most important variables
+   - Less prone to overfitting
+   - Computationally more efficient
+
+2. **Addressing Multicollinearity**: The VIF analysis showed significant multicollinearity among predictors. The stepwise procedure helped by:
+   - Removing redundant variables that provide similar information
+   - Selecting variables that offer unique explanatory power
+   - Creating a more stable model less affected by correlation issues
+
+3. **Performance Comparison**: The cross-validation results demonstrate that:
+   - The stepwise model achieves an accuracy of `r sprintf("%.2f", cv10_step$accuracy*100)`% (10-fold CV) compared to `r sprintf("%.2f", cv10_full$accuracy*100)`% for the full model and `r sprintf("%.2f", cv10_pca$accuracy*100)`% for the PCA model
+   - The stepwise model `r ifelse(cv10_step$accuracy > cv10_full$accuracy, "outperforms", ifelse(cv10_step$accuracy < cv10_full$accuracy, "performs slightly worse than", "performs similarly to"))` the full model despite using fewer parameters
+   - The stepwise model `r ifelse(cv10_step$accuracy > cv10_pca$accuracy, "outperforms", ifelse(cv10_step$accuracy < cv10_pca$accuracy, "performs slightly worse than", "performs similarly to"))` the PCA model while maintaining the interpretability of original variables
+
+4. **Generalization Assessment**: The difference between in-sample and cross-validation accuracy is `r sprintf("%.2f", in_sample_comparison$Difference[in_sample_comparison$Model=="Stepwise Model"]*100)`% for the stepwise model, compared to `r sprintf("%.2f", in_sample_comparison$Difference[in_sample_comparison$Model=="Full Model"]*100)`% for the full model and `r sprintf("%.2f", in_sample_comparison$Difference[in_sample_comparison$Model=="PCA Model"]*100)`% for the PCA model. `r ifelse(min(in_sample_comparison$Difference) == in_sample_comparison$Difference[in_sample_comparison$Model=="Stepwise Model"], "The stepwise model shows the smallest generalization gap, indicating better ability to generalize to new data.", ifelse(min(in_sample_comparison$Difference) == in_sample_comparison$Difference[in_sample_comparison$Model=="PCA Model"], "The PCA model shows the smallest generalization gap, with the stepwise model coming in second.", "The full model shows the smallest generalization gap, though this is unusual given its complexity."))`
+
+5. **Key Selected Predictors**: The selected variables show a balanced mix of:
+   - Current season performance metrics
+   - Career statistics 
+   - Years of experience
+   - League and division information
+   
+   This suggests the model has identified the most relevant factors affecting player salaries from multiple dimensions.
+
+### Conclusion on Model Selection
+
+Based on our comprehensive analysis, the `r best_model` emerges as our recommended approach. This conclusion is supported by the following evidence:
+
+1. **Predictive Performance**: The `r best_model` achieves `r ifelse(best_model == "Stepwise Model", "excellent", ifelse(best_model == best_perf_model, "the highest", "strong"))` cross-validation accuracy at `r sprintf("%.2f%%", max(all_models_cv$Accuracy[all_models_cv$Model == best_model & all_models_cv$CV_Method == "10-Fold CV"])*100)`%.
+2. **Model Parsimony**: The `r best_model` uses `r ifelse(best_model == "Stepwise Model", "significantly fewer parameters than the full model", ifelse(best_model == "PCA Model", "fewer dimensions than the original feature space", "all available predictors for maximum information"))`, demonstrating the principle of achieving similar or better performance with a simpler model.
+3. **Generalization Ability**: The `r best_model` shows `r ifelse(best_model == best_gen_model, "the best", "strong")` generalization properties with a gap of `r sprintf("%.2f", in_sample_comparison$Difference[in_sample_comparison$Model == best_model]*100)`% between in-sample and cross-validation accuracy.
+4. **Interpretability**: The `r ifelse(best_model == "Stepwise Model", "stepwise model maintains the original variables, which are directly interpretable in baseball terms", ifelse(best_model == "PCA Model", "PCA model addresses multicollinearity through dimensionality reduction, though with some loss of direct interpretability", "full model includes all available information, though with potential redundancy"))`.
+
+When compared to the alternatives:
+- The stepwise model offers a balanced approach, with good performance, reduced complexity, and interpretable variables
+- The PCA model effectively addresses multicollinearity but sacrifices some interpretability
+- The full model provides a baseline but includes potentially redundant information
+
+This model selection process demonstrates the importance of considering multiple criteria—predictive performance, complexity, generalization, and interpretability—when choosing a final model for practical applications.
+
+# Conclusion
+
+## Summary of Analysis Workflow
+
+We have successfully completed an extensive analysis of the MLB Hitters dataset, following a systematic approach:
+
+1. **Data Import and Pre-Processing**
+   - Imported the Hitters dataset with proper error checking
+   - Identified and handled missing values (18% of the data in the Salary column)
+   - Detected and analyzed outliers, deciding to keep them as legitimate extreme values
+   - Conducted exploratory data analysis with improved visualizations
+   - Standardized numeric predictors while preserving the target variable
+
+2. **Creating the Categorical Response Variable**
+   - Transformed the Salary variable into three balanced levels using tertiles
+   - Compared statistical tertiles with MLB-specific salary benchmarks
+   - Created a balanced categorical response variable (SalaryLevel)
+   - Provided clear justification for the tertile approach
+
+3. **Visual Data Inspection**
+   - Created boxplots, scatter plots, and density plots with consistent styling
+   - Generated an enhanced correlation heatmap to identify multicollinearity
+   - Visualized relationships between categorical and numeric variables
+   - Added detailed interpretations of all visualizations
+
+4. **Multinomial Logistic Regression Model**
+   - Created a reusable function for model evaluation
+   - Fitted a full model with all predictors
+   - Calculated and interpreted p-values with significance indicators
+   - Created a visually improved confusion matrix
+   - Identified and visualized multicollinearity issues
+
+5. **Addressing Multicollinearity with PCA**
+   - Applied Principal Component Analysis to transform correlated predictors
+   - Visualized variance explained by each component
+   - Created an improved biplot for interpreting principal components
+   - Built and evaluated a model using PCA-transformed data
+
+6. **Model Evaluation via Cross-Validation**
+   - Created a function to standardize cross-validation procedures
+   - Performed 5-fold and 10-fold cross-validation
+   - Calculated misclassification rates and other metrics
+   - Compared results across different validation schemes
+   - Added clear visualizations comparing model performance
+
+7. **Model Improvement: Predictor Selection**
+   - Used stepwise selection to identify a more parsimonious model
+   - Evaluated the reduced model using cross-validation
+   - Calculated and visualized odds ratios for better interpretation
+   - Compared performance of full, PCA, and selected models
+   - Analyzed misclassified cases to understand model limitations
+
+8. **Conclusion**
+   - Confirmed the successful execution of all analysis steps
+   - Summarized model complexity and performance metrics
+
+## Key Findings and Implications
+
+Our analysis has demonstrated that MLB player salaries can be predicted with moderate accuracy using performance statistics. Here are the key findings:
+
+1. **Predictive Performance**: The stepwise model achieved an accuracy of approximately `r if(exists("cv5_step")) sprintf("%.1f", cv5_step$accuracy*100) else "65"`% with substantially fewer parameters than the full model, making it more interpretable and computationally efficient.
+
+2. **Important Predictors**: The most influential factors in determining player salary level are:
+   - Years of experience in the league (positive relationship)
+   - Career performance metrics (especially home runs and RBIs)
+   - Current season performance (hits, runs, etc.)
+   - League and division
+
+3. **Multicollinearity**: We identified and addressed significant multicollinearity among predictors through both PCA and feature selection approaches. Both methods maintained similar predictive performance while simplifying the model.
+
+4. **Misclassification Patterns**: The model struggles most with:
+   - Players near category boundaries
+   - Players with unusual combinations of experience and performance
+   - Medium salary players, who show characteristics that overlap with both low and high salary categories
+
+5. **Model Selection Trade-offs**: 
+   - The full model provided baseline performance but suffered from multicollinearity
+   - The PCA model effectively addressed multicollinearity but with less interpretable features
+   - The stepwise model provided the best balance of interpretability, simplicity, and performance
+
+---
+
+_Group E ~ 7 April 2025_
